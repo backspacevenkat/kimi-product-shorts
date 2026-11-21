@@ -1,0 +1,17 @@
+{
+  "name": "kimi-product-shorts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Product link in, 15-second vertical product video out. Kimi K3.1 Pro on Cerebras directs, OpenClaw runs it, HyperFrames renders.",
+  "type": "module",
+  "scripts": {
+    "make": "node src/make.mjs"
+  },
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "dependencies": {
+    "hyperframes": "0.9.70",
+    "openclaw": "2026.11.5"
+  }
+}
