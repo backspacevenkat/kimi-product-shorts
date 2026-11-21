@@ -2,6 +2,9 @@
 // Shopify: public <product-url>.json. Everything else: JSON-LD Product + Open Graph tags.
 // Amazon pages block plain fetches, so they take pre-captured HTML (see scrapeHtml).
 
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 
@@ -23,10 +26,56 @@ const money = (v, currency = "USD") => {
   return sym + (Number.isInteger(n) ? n : n.toFixed(2));
 };
 
+// Every fetch goes through here. URLs come from user input and from scraped pages,
+// so: http(s) only, no private/loopback/link-local targets, redirects re-checked
+// hop by hop, and a size cap.
+const MAX_BYTES = 25 * 1024 * 1024;
+
+function isPrivate(ip) {
+  if (isIP(ip) === 4) {
+    const [a, b] = ip.split(".").map(Number);
+    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+  }
+  const v = ip.toLowerCase();
+  if (v.startsWith("::ffff:")) return isPrivate(v.slice(7));
+  return v === "::" || v === "::1" || /^f[cd]/.test(v) || /^fe[89ab]/.test(v) || v.startsWith("ff");
+}
+
+async function assertPublic(url) {
+  const u = new URL(url);
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error(`Blocked non-http URL: ${u.protocol}`);
+  if (u.username || u.password) throw new Error("Blocked URL with credentials");
+  const host = u.hostname.replace(/^\[|\]$/g, "");
+  const addrs = isIP(host) ? [{ address: host }] : await lookup(host, { all: true });
+  if (!addrs.length || addrs.some((a) => isPrivate(a.address))) throw new Error(`Blocked private or local address: ${u.hostname}`);
+  return u;
+}
+
 async function get(url, accept = "text/html") {
-  const res = await fetch(url, { headers: { "user-agent": UA, accept, "accept-language": "en-US,en;q=0.9" }, redirect: "follow" });
-  if (!res.ok) throw new Error(`${res.status} fetching ${url}`);
-  return res;
+  let current = url;
+  for (let hop = 0; hop < 6; hop++) {
+    await assertPublic(current);
+    const res = await fetch(current, { headers: { "user-agent": UA, accept, "accept-language": "en-US,en;q=0.9" }, redirect: "manual" });
+    if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+      current = new URL(res.headers.get("location"), current).href;
+      continue;
+    }
+    if (!res.ok) throw new Error(`${res.status} fetching ${url}`);
+    if (Number(res.headers.get("content-length") ?? 0) > MAX_BYTES) throw new Error(`Response too large: ${url}`);
+    return res;
+  }
+  throw new Error(`Too many redirects: ${url}`);
+}
+
+async function body(res) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of res.body) {
+    size += chunk.length;
+    if (size > MAX_BYTES) throw new Error("Response too large");
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
 }
 
 async function shopify(url) {
@@ -154,6 +203,8 @@ export async function scrape(url, html) {
 export async function download(src, dest) {
   const { writeFile } = await import("node:fs/promises");
   const res = await get(src, "image/avif,image/webp,image/*,*/*");
-  await writeFile(dest, Buffer.from(await res.arrayBuffer()));
-  return res.headers.get("content-type") ?? "";
+  const type = res.headers.get("content-type") ?? "";
+  if (type && !/^image\//i.test(type)) throw new Error(`Not an image (${type.slice(0, 40)})`);
+  await writeFile(dest, await body(res));
+  return type;
 }
