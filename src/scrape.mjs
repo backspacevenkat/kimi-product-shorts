@@ -2,8 +2,9 @@
 // Shopify: public <product-url>.json. Everything else: JSON-LD Product + Open Graph tags.
 // Amazon pages block plain fetches, so they take pre-captured HTML (see scrapeHtml).
 
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { lookup as dnsLookup } from "node:dns";
+import { BlockList, isIP } from "node:net";
+import { Agent, fetch } from "undici";
 
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
@@ -27,47 +28,61 @@ const money = (v, currency = "USD") => {
 };
 
 // Every fetch goes through here. URLs come from user input and from scraped pages,
-// so: http(s) only, no private/loopback/link-local targets, redirects re-checked
-// hop by hop, and a size cap.
+// so: http(s) only, no private/reserved targets, redirects re-checked hop by hop,
+// and a size cap. The address check runs inside the socket's DNS lookup, so the
+// address that was validated is the address that gets connected to (no rebinding gap).
 const MAX_BYTES = 25 * 1024 * 1024;
 
-function isPrivate(ip) {
-  if (isIP(ip) === 4) {
-    const [a, b] = ip.split(".").map(Number);
-    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
-  }
+const blocked = new BlockList();
+for (const [net, bits] of [
+  ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12],
+  ["192.0.0.0", 24], ["192.0.2.0", 24], ["192.88.99.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15],
+  ["198.51.100.0", 24], ["203.0.113.0", 24], ["224.0.0.0", 4], ["240.0.0.0", 4],
+]) blocked.addSubnet(net, bits, "ipv4");
+for (const [net, bits] of [
+  ["::", 96], // unspecified, loopback and IPv4-compatible (IPv4-mapped is unwrapped in isPrivate)
+  ["64:ff9b::", 96], ["64:ff9b:1::", 48], // NAT64
+  ["100::", 64], ["2001::", 23], ["2001:db8::", 32], ["2002::", 16], // discard, special, docs, 6to4
+  ["fc00::", 7], ["fe80::", 10], ["fec0::", 10], ["ff00::", 8],
+]) blocked.addSubnet(net, bits, "ipv6");
+
+// Trailing 32 bits of an IPv6 address as dotted IPv4, whatever notation was used.
+function embeddedV4(ip) {
+  const tail = ip.split(":").slice(-2);
+  if (tail[1]?.includes(".")) return tail[1];
+  const [hi, lo] = tail.map((h) => parseInt(h || "0", 16));
+  if (![hi, lo].every((n) => Number.isInteger(n) && n >= 0 && n <= 0xffff)) return null;
+  return [hi >> 8, hi & 255, lo >> 8, lo & 255].join(".");
+}
+
+export function isPrivate(ip) {
+  const fam = isIP(ip);
+  if (fam === 4) return blocked.check(ip, "ipv4");
+  if (fam !== 6) return true; // unparseable: refuse
+  if (blocked.check(ip, "ipv6")) return true;
   const v = ip.toLowerCase();
-  if (v.startsWith("::ffff:")) return isPrivate(v.slice(7));
-  return v === "::" || v === "::1" || /^f[cd]/.test(v) || /^fe[89ab]/.test(v) || v.startsWith("ff");
-}
-
-async function assertPublic(url) {
-  const u = new URL(url);
-  if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error(`Blocked non-http URL: ${u.protocol}`);
-  if (u.username || u.password) throw new Error("Blocked URL with credentials");
-  const host = u.hostname.replace(/^\[|\]$/g, "");
-  const addrs = isIP(host) ? [{ address: host }] : await lookup(host, { all: true });
-  if (!addrs.length || addrs.some((a) => isPrivate(a.address))) throw new Error(`Blocked private or local address: ${u.hostname}`);
-  return u;
-}
-
-async function get(url, accept = "text/html") {
-  let current = url;
-  for (let hop = 0; hop < 6; hop++) {
-    await assertPublic(current);
-    const res = await fetch(current, { headers: { "user-agent": UA, accept, "accept-language": "en-US,en;q=0.9" }, redirect: "manual" });
-    if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
-      current = new URL(res.headers.get("location"), current).href;
-      continue;
-    }
-    if (!res.ok) throw new Error(`${res.status} fetching ${url}`);
-    if (Number(res.headers.get("content-length") ?? 0) > MAX_BYTES) throw new Error(`Response too large: ${url}`);
-    return res;
+  if (/^(::ffff:|::|64:ff9b::)/.test(v)) {
+    const v4 = embeddedV4(v);
+    return !v4 || isIP(v4) !== 4 || blocked.check(v4, "ipv4");
   }
-  throw new Error(`Too many redirects: ${url}`);
+  return false;
 }
 
-async function body(res) {
+// DNS lookup used by the socket itself: every candidate address must be public.
+function guardedLookup(hostname, options, cb) {
+  dnsLookup(hostname, { ...options, all: true }, (err, addrs) => {
+    if (err) return cb(err);
+    const bad = addrs.find((a) => isPrivate(a.address));
+    if (bad || !addrs.length) return cb(new Error(`Blocked private or local address: ${hostname}`));
+    return options.all ? cb(null, addrs) : cb(null, addrs[0].address, addrs[0].family);
+  });
+}
+
+// undici connects through guardedLookup, so the address that passed the check
+// is the one the socket uses.
+const dispatcher = new Agent({ connect: { lookup: guardedLookup }, headersTimeout: 20000, bodyTimeout: 30000 });
+
+async function readCapped(res) {
   const chunks = [];
   let size = 0;
   for await (const chunk of res.body) {
@@ -76,6 +91,35 @@ async function body(res) {
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
+}
+
+async function get(url, accept = "text/html") {
+  let current = url;
+  for (let hop = 0; hop < 6; hop++) {
+    const u = new URL(current);
+    if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error(`Blocked non-http URL: ${u.protocol}`);
+    if (u.username || u.password) throw new Error("Blocked URL with credentials");
+    // IP-literal hosts never reach the DNS lookup, so check them here.
+    const host = u.hostname.replace(/^\[|\]$/g, "");
+    if (isIP(host) && isPrivate(host)) throw new Error(`Blocked private or local address: ${u.hostname}`);
+    let res;
+    try {
+      res = await fetch(u, { dispatcher, redirect: "manual", headers: { "user-agent": UA, accept, "accept-language": "en-US,en;q=0.9" } });
+    } catch (e) {
+      throw new Error(e?.cause?.message ?? e.message);
+    }
+    const loc = res.headers.get("location");
+    if (res.status >= 300 && res.status < 400 && loc) {
+      await res.body?.cancel();
+      current = new URL(loc, u).href;
+      continue;
+    }
+    if (!res.ok) throw new Error(`${res.status} fetching ${url}`);
+    if (Number(res.headers.get("content-length") ?? 0) > MAX_BYTES) throw new Error(`Response too large: ${url}`);
+    const buffer = await readCapped(res);
+    return { ok: true, status: res.status, headers: res.headers, buffer, text: async () => buffer.toString("utf8"), json: async () => JSON.parse(buffer.toString("utf8")) };
+  }
+  throw new Error(`Too many redirects: ${url}`);
 }
 
 async function shopify(url) {
@@ -205,6 +249,6 @@ export async function download(src, dest) {
   const res = await get(src, "image/avif,image/webp,image/*,*/*");
   const type = res.headers.get("content-type") ?? "";
   if (type && !/^image\//i.test(type)) throw new Error(`Not an image (${type.slice(0, 40)})`);
-  await writeFile(dest, await body(res));
+  await writeFile(dest, res.buffer);
   return type;
 }

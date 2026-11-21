@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "hyperframes": "0.9.70",
-    "openclaw": "2026.11.5"
+    "openclaw": "2026.11.5",
+    "undici": "7.30.2"
   }
 }
