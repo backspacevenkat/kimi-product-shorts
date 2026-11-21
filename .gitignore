@@ -6,3 +6,6 @@ node_modules
 videos/
 # Local OpenClaw workspace (generated, machine-specific)
 openclaw-workspace/
+site/dist/
+.wrangler/
+.claude/

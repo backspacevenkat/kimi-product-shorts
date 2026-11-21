@@ -54,6 +54,17 @@ openclaw --profile cerb config set agents.list '[{"id":"main","default":true},{"
 
 `openclaw-skill/product-video/` is an agent skill for the full flow (send the agent a link, it scrapes, writes the brief and renders). Copy it into your OpenClaw workspace `skills/` folder and set `PRODUCT_SHORTS_ROOT` to this repository's path. It is experimental.
 
+## Dashboard
+
+Live showcase: https://kimi-product-shorts.venkatg.workers.dev
+
+`site/` is a static dashboard (gallery, briefs, timings) hosted on Cloudflare Workers. It needs no API key.
+
+```bash
+node site/build.mjs      # builds site/dist from videos/*/run.json (add --render to re-render first)
+wrangler deploy
+```
+
 ## Security notes
 
 - Scraped page text is untrusted. It is sent to the model as delimited data, and the OpenClaw brief agent has no tools, so a hostile product page cannot make the agent run commands.
@@ -72,3 +83,4 @@ openclaw --profile cerb config set agents.list '[{"id":"main","default":true},{"
 - `src/brief.mjs` – product data to creative brief (Cerebras or OpenClaw)
 - `src/compose.mjs` – brief to HyperFrames composition
 - `src/make.mjs` – command-line entry point
+- `site/` – dashboard page, build script and the Worker that serves video range requests
