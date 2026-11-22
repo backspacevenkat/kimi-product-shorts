@@ -31,11 +31,14 @@ const JOBS = path.join(ROOT, "jobs");
 const PORT = Number(process.env.PORT ?? 8787);
 const BACKEND_KEY = process.env.BACKEND_KEY ?? "";
 const CEREBRAS_KEY = process.env.CEREBRAS_API_KEY ?? "";
+const OPENCLAW_URL = (process.env.OPENCLAW_URL ?? "").replace(/\/$/, "") || null; // e.g. http://127.0.0.1:18801
+const OPENCLAW_TOKEN = process.env.OPENCLAW_TOKEN ?? "";
+const OPENCLAW_AGENT = process.env.OPENCLAW_AGENT ?? "brief";
 const VIA = process.env.BRIEF_VIA ?? "cerebras"; // "openclaw" runs the brief as an OpenClaw agent turn
 const MAX_ACTIVE = Number(process.env.MAX_ACTIVE ?? 4);
 const RENDER_JOBS = Number(process.env.RENDER_JOBS ?? 2);
 if (!BACKEND_KEY || BACKEND_KEY.length < 24) throw new Error("Set BACKEND_KEY (24+ characters)");
-if (!CEREBRAS_KEY) throw new Error("Set CEREBRAS_API_KEY");
+if (!CEREBRAS_KEY && !OPENCLAW_URL) throw new Error("Set CEREBRAS_API_KEY, or OPENCLAW_URL and OPENCLAW_TOKEN");
 
 const authed = (req) => {
   const got = Buffer.from(String(req.headers["x-backend-key"] ?? ""));
@@ -73,12 +76,16 @@ async function render(dir) {
 async function streamBrief(product, imageData, send) {
   const t0 = Date.now();
   // Cerebras sheds load with 429s when busy. Wait and try again a few times before giving up.
-  const body = JSON.stringify(briefRequest(product, { imageData, stream: true, system: SYSTEM_DIRECTOR }));
+  // With OPENCLAW_URL set, the director runs as an OpenClaw agent turn: the request goes
+  // to the OpenClaw Gateway's OpenAI-compatible endpoint, which runs the tool-less
+  // "brief" agent on Kimi K3.1 Pro (Cerebras). Without it, Cerebras is called directly.
+  const req = briefRequest(product, { imageData, stream: true, system: SYSTEM_DIRECTOR });
+  const body = JSON.stringify(OPENCLAW_URL ? { model: `openclaw/${OPENCLAW_AGENT}`, stream: true, messages: req.messages } : req);
   let res;
   for (let attempt = 0; ; attempt++) {
-    res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+    res = await fetch(OPENCLAW_URL ? `${OPENCLAW_URL}/v1/chat/completions` : "https://api.cerebras.ai/v1/chat/completions", {
       method: "POST",
-      headers: { authorization: `Bearer ${CEREBRAS_KEY}`, "content-type": "application/json" },
+      headers: { authorization: `Bearer ${OPENCLAW_URL ? OPENCLAW_TOKEN : CEREBRAS_KEY}`, "content-type": "application/json" },
       body,
       signal: AbortSignal.timeout(240000),
     });
@@ -132,7 +139,7 @@ async function streamBrief(product, imageData, send) {
     raw: parse(content),
     stats: {
       model: MODEL,
-      via: "cerebras",
+      via: OPENCLAW_URL ? "openclaw" : "cerebras",
       vision: imageData.length > 0,
       wallSeconds: +((Date.now() - t0) / 1000).toFixed(2),
       queueSeconds: timeInfo?.queue_time != null ? +timeInfo.queue_time.toFixed(2) : firstAt ? +((firstAt - t0) / 1000).toFixed(2) : null,
@@ -408,4 +415,4 @@ const server = http.createServer(async (req, res) => {
 });
 
 await mkdir(JOBS, { recursive: true });
-server.listen(PORT, "127.0.0.1", () => console.log(`generator listening on 127.0.0.1:${PORT} (brief via ${VIA}, ${RENDER_JOBS} render slots)`));
+server.listen(PORT, "127.0.0.1", () => console.log(`generator listening on 127.0.0.1:${PORT} (director via ${OPENCLAW_URL ? "OpenClaw gateway" : VIA}, ${RENDER_JOBS} render slots)`));

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Kimi Product Shorts</title>
+<title>Three Takes: one product link, three ads</title>
 <meta name="description" content="Paste a product link, get a 15-second vertical product video. Directed by Kimi K3.1 Pro on Cerebras, run through OpenClaw, rendered with HyperFrames." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -181,7 +181,7 @@
 <body>
 <nav>
   <div class="wrap">
-    <a class="logo" href="#top"><i></i>Kimi Product Shorts</a>
+    <a class="logo" href="#top"><i></i>Three Takes</a>
     <div class="links">
       <a href="#try">Try it</a>
       <a href="#mine" id="navMine" hidden>My videos</a>
@@ -198,8 +198,8 @@
     <div class="eyebrow">
       <span class="chip">Kimi K3.1 Pro</span><span class="chip">Cerebras</span><span class="chip">OpenClaw</span><span class="chip">HyperFrames</span>
     </div>
-    <h1>Product link in. <em>Video ad</em> out.</h1>
-    <p class="lede">Paste a store link below. Kimi studies the product, invents three different ad concepts and directs each one scene by scene. They play right here seconds later.</p>
+    <h1>One link. <em>Three takes.</em></h1>
+    <p class="lede">Paste a product link. Kimi K3.1 Pro studies it, invents three different ad concepts and directs each one scene by scene. Three finished video ads play seconds later.</p>
 
     <div class="try" id="try">
       <div class="auth" id="auth">
@@ -220,7 +220,7 @@
           <div class="ptitle" id="pTitle"></div>
           <ul class="stages" id="stages">
             <li data-s="scraping">Read the product page<span></span></li>
-            <li data-s="queued">Wait in the Cerebras queue<span></span></li>
+            <li data-s="queued">OpenClaw agent starts<span></span></li>
             <li data-s="writing">Kimi directs three ads<span></span></li>
             <li data-s="playing">Stage the storyboards<span></span></li>
             <li data-s="rendering">Render the MP4s<span></span></li>
@@ -534,8 +534,14 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
             setStage("playing");
             {
               fixStage("scraping", fmt(st.scrapeSeconds, 2) + " s");
-              fixStage("queued", fmt(st.queueSeconds) + " s");
-              fixStage("writing", `${fmt(st.writeSeconds, 2)} s · ${st.tokens ?? "–"} tokens · ${st.tps ?? "–"} tok/s`);
+              if (st.via === "openclaw") {
+                // Through OpenClaw the agent turn is timed as a whole.
+                fixStage("queued", "included");
+                fixStage("writing", `${fmt(st.wallSeconds)} s via OpenClaw`);
+              } else {
+                fixStage("queued", fmt(st.queueSeconds) + " s");
+                fixStage("writing", `${fmt(st.writeSeconds, 2)} s · ${st.tokens ?? "–"} tokens · ${st.tps ?? "–"} tok/s`);
+              }
             }
             fixStage("playing", "now playing");
             document.querySelector("#live .phone").hidden = true;

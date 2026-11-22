@@ -1,6 +1,6 @@
-# Kimi Product Shorts
+# Three Takes
 
-Paste a product link, get a 15-second vertical product video.
+One product link in, three different 15-second video ads out. Kimi K3.1 Pro on Cerebras directs each one, running as an OpenClaw agent.
 
 Built for the Cerebras x Kimi K3.1 Pro x OpenClaw hackathon.
 
@@ -98,7 +98,22 @@ wrangler secret put BACKEND_KEY
 wrangler kv key put backend_url "<tunnel url>" --namespace-id <STATE id> --remote
 ```
 
-Set `GOOGLE_CLIENT_ID` and `GEN_LIMIT` in `wrangler.jsonc`. The hosted path calls Cerebras directly; set `BRIEF_VIA=openclaw` on the generator to route briefs through OpenClaw instead (slower, text-only).
+Set `GOOGLE_CLIENT_ID` and `GEN_LIMIT` in `wrangler.jsonc`.
+
+### Directing through OpenClaw
+
+The generator sends the director request to an OpenClaw Gateway's OpenAI-compatible endpoint, which runs it as a turn of a tool-less `brief` agent on Kimi K3.1 Pro (Cerebras). Product photos and streaming both work on this path.
+
+```bash
+# once: enable the endpoint and run the gateway on loopback
+openclaw --profile cerb config set gateway.http.endpoints.chatCompletions.enabled true --strict-json
+openclaw --profile cerb gateway run --port 18801 --bind loopback --auth token --token <random>
+
+# generator
+OPENCLAW_URL=http://127.0.0.1:18801 OPENCLAW_TOKEN=<random> BACKEND_KEY=... FETCH_VIA=curl node src/server.mjs
+```
+
+Without `OPENCLAW_URL` the generator calls Cerebras directly (needs `CEREBRAS_API_KEY`).
 
 ## Dashboard
 
