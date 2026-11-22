@@ -12,6 +12,7 @@ import { promisify } from "node:util";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { scrape, download } from "./scrape.mjs";
+import { thumbnail } from "./thumb.mjs";
 import { writeBrief, normalize } from "./brief.mjs";
 import { composeVideo } from "./styles.mjs";
 
@@ -23,7 +24,6 @@ const opt = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
 const urls = args.filter((a) => /^https?:\/\//.test(a));
 
 const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
-const ext = (type, src) => (/png/.test(type) ? "png" : /webp/.test(type) ? "webp" : /avif/.test(type) ? "avif" : /\.png(\?|$)/i.test(src) ? "png" : "jpg");
 const clock = () => performance.now();
 const secs = (t) => +((clock() - t) / 1000).toFixed(2);
 
@@ -67,10 +67,6 @@ if (!urls.length) {
   process.exit(1);
 }
 
-const thumbnail = async (file) => {
-  const { stdout } = await run("ffmpeg", ["-v", "error", "-i", file, "-vf", "scale=448:448:force_original_aspect_ratio=decrease", "-frames:v", "1", "-q:v", "6", "-f", "image2pipe", "-c:v", "mjpeg", "-"], { encoding: "buffer", maxBuffer: 1 << 24 });
-  return `data:image/jpeg;base64,${stdout.toString("base64")}`;
-};
 
 async function makeOne(url, tag) {
   const log = (line) => console.log(`${tag}${line}`);
@@ -89,10 +85,10 @@ async function makeOne(url, tag) {
   const downloads = sources.map(async (src, i) => {
     try {
       const tmp = path.join(dir, "assets", `img${i}`);
-      const type = await download(src, tmp);
-      const rel = `assets/img${i}.${ext(type, src)}`;
+      const kind = await download(src, tmp);
+      const rel = `assets/img${i}.${kind}`;
       await rename(tmp, path.join(dir, rel));
-      return { src, rel };
+      return { src, rel, kind };
     } catch (e) {
       console.error(`${tag}  skipped image ${i}: ${e.message.slice(0, 60)}`);
       return null;
@@ -120,7 +116,13 @@ async function makeOne(url, tag) {
       if (!h) break;
       usable.push(h);
     }
-    const imageData = flag("--no-vision") ? [] : await Promise.all(usable.map((h) => thumbnail(path.join(dir, h.rel))));
+    const imageData = [];
+    if (!flag("--no-vision")) {
+      for (const data of await Promise.all(usable.map((h) => thumbnail(path.join(dir, h.rel), h.kind)))) {
+        if (!data) break; // keep indices aligned with what the model is shown
+        imageData.push(data);
+      }
+    }
     return writeBrief(product, { imageData });
   })();
 

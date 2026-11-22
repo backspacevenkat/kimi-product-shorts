@@ -17,6 +17,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { scrape, download } from "./scrape.mjs";
+import { thumbnail } from "./thumb.mjs";
 import { writeBrief } from "./brief.mjs";
 import { MODEL, briefRequest, normalizeVariants, parse } from "./core/brief-core.mjs";
 import { composeVideo, VERSION_STYLES, STYLE_LABELS } from "./styles.mjs";
@@ -38,7 +39,6 @@ const authed = (req) => {
   const want = Buffer.from(BACKEND_KEY);
   return got.length === want.length && timingSafeEqual(got, want);
 };
-const ext = (type, src) => (/png/.test(type) ? "png" : /webp/.test(type) ? "webp" : /avif/.test(type) ? "avif" : /\.png(\?|$)/i.test(src) ? "png" : "jpg");
 const sized = (src, width) => {
   try {
     const u = new URL(src);
@@ -65,10 +65,6 @@ async function render(dir) {
   }
 }
 
-const thumbnail = async (file) => {
-  const { stdout } = await run("ffmpeg", ["-v", "error", "-i", file, "-vf", "scale=448:448:force_original_aspect_ratio=decrease", "-frames:v", "1", "-q:v", "6", "-f", "image2pipe", "-c:v", "mjpeg", "-"], { encoding: "buffer", maxBuffer: 1 << 24 });
-  return `data:image/jpeg;base64,${stdout.toString("base64")}`;
-};
 
 // Kimi on Cerebras, streamed so the visitor watches the brief being written.
 async function streamBrief(product, imageData, send) {
@@ -163,10 +159,10 @@ async function generate(url, send) {
   const downloads = sources.map(async (src, i) => {
     try {
       const tmp = path.join(dir, "assets", `img${i}`);
-      const type = await download(src, tmp);
-      const rel = `assets/img${i}.${ext(type, src)}`;
+      const kind = await download(src, tmp);
+      const rel = `assets/img${i}.${kind}`;
       await rename(tmp, path.join(dir, rel));
-      return { src, rel };
+      return { src, rel, kind };
     } catch {
       return null;
     }
@@ -182,7 +178,12 @@ async function generate(url, send) {
       if (!h) break;
       usable.push(h);
     }
-    return streamBrief(product, await Promise.all(usable.map((h) => thumbnail(path.join(dir, h.rel)))), send);
+    const thumbs = [];
+    for (const data of await Promise.all(usable.map((h) => thumbnail(path.join(dir, h.rel), h.kind)))) {
+      if (!data) break; // keep indices aligned with what the model is shown
+      thumbs.push(data);
+    }
+    return streamBrief(product, thumbs, send);
   })();
   const [all, { briefs: raws, stats }] = await Promise.all([Promise.all(downloads), briefJob]);
 

@@ -166,11 +166,24 @@ export async function scrape(url, html) {
   return scrapeHtml(s?.html ?? (await (await get(url)).text()), url);
 }
 
+// What the bytes actually are, whatever the URL or content-type header claims.
+export function sniffImage(buf) {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpg";
+  if (buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "png";
+  if (buf.toString("latin1", 0, 4) === "RIFF" && buf.toString("latin1", 8, 12) === "WEBP") return "webp";
+  if (buf.toString("latin1", 4, 8) === "ftyp" && /^(avif|avis)$/.test(buf.toString("latin1", 8, 12))) return "avif";
+  return null;
+}
+
+// Saves a product photo. Anything that is not a real JPEG, PNG, WebP or AVIF is
+// refused, so a hostile page cannot hand later tools a playlist or script
+// dressed up as an image. Returns the detected kind.
 export async function download(src, dest) {
   const { writeFile } = await import("node:fs/promises");
   const res = await get(src, "image/avif,image/webp,image/*,*/*");
-  const type = res.headers.get("content-type") ?? "";
-  if (type && !/^image\//i.test(type)) throw new Error(`Not an image (${type.slice(0, 40)})`);
+  const kind = sniffImage(res.buffer);
+  if (!kind) throw new Error("Not a supported image");
   await writeFile(dest, res.buffer);
-  return type;
+  return kind;
 }
