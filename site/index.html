@@ -3,23 +3,21 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Three Takes: one product link, three ads</title>
-<meta name="description" content="Paste a product link, get a 15-second vertical product video. Directed by Kimi K3.1 Pro on Cerebras, run through OpenClaw, rendered with HyperFrames." />
+<title>PostReady: product videos in under a minute</title>
+<meta name="description" content="Get content ready for your products in under a minute. Paste a product link and get three ready-to-post video ads, sized for Shorts, Reels, TikTok and your feed." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --bg:#f6f4ef; --panel:#ffffff; --ink:#15151a; --soft:#62626d; --line:#e4e0d6; --accent:#ff5a1f; --on-accent:#ffffff; --chip:#efece4;
-    --shadow:0 1px 2px rgba(20,20,30,.05), 0 12px 32px rgba(20,20,30,.07);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#0d0d11; --panel:#17171d; --ink:#f3f2ee; --soft:#a1a1ad; --line:#2a2a33; --accent:#ff6a33; --on-accent:#14110f; --chip:#22222a; --shadow:0 1px 2px rgba(0,0,0,.4), 0 16px 40px rgba(0,0,0,.35); }
+    color-scheme:dark;
+    --bg:#08080c; --panel:#121218; --ink:#f5f3ee; --soft:#a09fab; --line:#25252f; --accent:#ff5a1f; --on-accent:#120b07; --chip:#1b1b23; --good:#3ddc84;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 20px 50px rgba(0,0,0,.45);
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   [hidden] { display:none !important; }
   html { scroll-behavior:smooth; }
-  body { background:var(--bg); color:var(--ink); font-family:Inter, system-ui, sans-serif; font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+  body { background:radial-gradient(1200px 700px at 85% -10%, rgba(255,90,31,.16), transparent 60%), radial-gradient(900px 600px at -10% 30%, rgba(255,90,31,.07), transparent 60%), var(--bg); background-attachment:fixed; color:var(--ink); font-family:Inter, system-ui, sans-serif; font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased; }
   a { color:inherit; }
   .wrap { max-width:1180px; margin:0 auto; padding:0 20px; }
   h1, h2, h3, .num { font-family:"Space Grotesk", Inter, sans-serif; letter-spacing:-.02em; }
@@ -33,12 +31,47 @@
   nav .links a:hover { color:var(--ink); background:var(--chip); }
   nav .links a.gh { color:var(--ink); border:1px solid var(--line); }
 
-  header { padding:64px 0 36px; }
+  header { padding:56px 0 36px; }
+  .hero { display:grid; grid-template-columns:minmax(0, 1.08fr) minmax(0, .92fr); gap:40px; align-items:center; }
+  .trio3 { position:relative; height:480px; }
+  .trio3 .ph { position:absolute; width:208px; aspect-ratio:9/16; border-radius:26px; overflow:hidden; background:#000; border:5px solid #24242d; box-shadow:0 30px 70px rgba(0,0,0,.6); }
+  .trio3 .ph video { width:100%; height:100%; object-fit:cover; display:block; }
+  .trio3 .ph:nth-child(1) { left:0; top:66px; transform:rotate(-7deg); }
+  .trio3 .ph:nth-child(2) { left:50%; margin-left:-104px; top:14px; z-index:2; }
+  .trio3 .ph:nth-child(3) { right:0; top:66px; transform:rotate(7deg); }
+  .trio3 .cap3 { position:absolute; left:0; right:0; bottom:0; text-align:center; font-size:13.5px; color:var(--soft); }
+  .trio3 .cap3 b { color:var(--ink); font-weight:600; }
+  .cta { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:26px; }
+  .cta a.big { text-decoration:none; font-weight:600; font-size:17px; padding:14px 22px; border-radius:12px; background:var(--accent); color:var(--on-accent); }
+  .cta span { font-size:14.5px; color:var(--soft); }
+  .chip.hot { background:color-mix(in srgb, var(--accent) 18%, transparent); color:#ffb497; border:1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+  /* one minute, drawn to scale */
+  .minute { margin:34px 0 8px; }
+  .minute .bar { height:52px; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:repeating-linear-gradient(-45deg, var(--panel) 0 10px, var(--chip) 10px 20px); display:flex; }
+  .minute .seg { height:100%; display:flex; align-items:center; padding-left:12px; font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; min-width:5px; color:#120b07; }
+  .minute .seg.a { background:#ffd9c9; } .minute .seg.b { background:var(--accent); } .minute .seg.c { background:#ff9a70; }
+  .minute .spare { margin:auto; font-size:14px; font-weight:600; color:var(--soft); background:var(--bg); padding:3px 12px; border-radius:6px; }
+  .minute .ticks { display:flex; justify-content:space-between; font-size:13px; color:var(--soft); margin-top:6px; font-variant-numeric:tabular-nums; }
+  .minute ul { list-style:none; display:flex; flex-wrap:wrap; gap:8px 26px; margin-top:14px; font-size:15px; }
+  .minute li { display:flex; align-items:center; gap:8px; }
+  .minute li i { width:13px; height:13px; border-radius:4px; display:block; }
+  @media (max-width:820px) { .minute .seg { font-size:0; padding:0; } }
+  /* platforms */
+  .plats { --ph:250px; display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; }
+  .plat { flex:none; }
+  .plat .fr { height:var(--ph); border-radius:18px; overflow:hidden; background:#000; border:4px solid #24242d; box-shadow:var(--shadow); }
+  .plat .fr video { height:100%; width:100%; object-fit:cover; display:block; }
+  .plat b { display:block; margin-top:12px; font-family:"Space Grotesk", sans-serif; font-size:17px; }
+  .plat span { font-size:13.5px; color:var(--soft); }
+  .plat .names { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; max-width:100%; }
+  .plat .names i { font-style:normal; font-size:12.5px; font-weight:600; padding:4px 9px; border-radius:999px; background:var(--chip); color:var(--ink); }
+  @media (max-width:980px) { .hero { grid-template-columns:1fr; } .trio3 { height:400px; max-width:520px; margin:0 auto; width:100%; } .trio3 .ph { width:170px; } .trio3 .ph:nth-child(2) { margin-left:-85px; } }
+  @media (max-width:820px) { .plats { flex-wrap:nowrap; overflow-x:auto; padding-bottom:10px; } .plats { --ph:230px; } }
   .eyebrow { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:22px; }
   .chip { font-size:12.5px; font-weight:600; letter-spacing:.02em; padding:5px 11px; border-radius:999px; background:var(--chip); color:var(--soft); }
-  h1 { font-size:clamp(38px, 6.4vw, 76px); line-height:1; font-weight:700; max-width:14ch; }
+  h1 { font-size:clamp(38px, 5.4vw, 68px); line-height:1.02; font-weight:700; max-width:15ch; text-wrap:balance; }
   h1 em { font-style:normal; color:var(--accent); }
-  .lede { margin-top:20px; font-size:clamp(17px, 2vw, 20px); color:var(--soft); max-width:60ch; }
+  .lede { margin-top:20px; font-size:clamp(17px, 2vw, 20px); color:var(--soft); max-width:46ch; }
 
   .kpis { display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; margin:34px 0 8px; }
   .kpi { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:var(--shadow); }
@@ -129,7 +162,7 @@
   .stages li.now { color:var(--ink); font-weight:600; }
   .stages li.now::before { background:var(--accent); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); }
   .stages li.done { color:var(--ink); }
-  .stages li.done::before { background:#22a06b; }
+  .stages li.done::before { background:var(--good); }
   .stages li span { margin-left:auto; font-variant-numeric:tabular-nums; font-size:13.5px; color:var(--soft); font-weight:500; }
   .stream { font:12.5px/1.5 ui-monospace, Menlo, monospace; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:10px 12px; max-height:150px; overflow:auto; white-space:pre-wrap; word-break:break-word; color:var(--soft); min-height:44px; }
   .versions { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:20px; margin-top:22px; padding-top:22px; border-top:1px solid var(--line); }
@@ -160,7 +193,7 @@
   details.dl > div a:hover { background:var(--chip); }
   details.dl > div a span { color:var(--soft); font-size:13px; font-variant-numeric:tabular-nums; }
   .ptitle { font-family:"Space Grotesk", sans-serif; font-weight:700; font-size:22px; line-height:1.15; }
-  .err { color:#d92d20; font-weight:600; font-size:15px; margin-top:10px; }
+  .err { color:#ff7b6b; font-weight:600; font-size:15px; margin-top:10px; }
   .fine { font-size:13px; color:var(--soft); margin-top:12px; }
   @media (max-width:820px) { .live.on { grid-template-columns:1fr; } .phone { max-width:280px; margin:0 auto; width:100%; } .try form { flex-direction:column; } .try button.go { padding:14px; } }
   @media (prefers-reduced-motion: reduce) { .spin { animation-duration:2.4s; } }
@@ -181,11 +214,12 @@
 <body>
 <nav>
   <div class="wrap">
-    <a class="logo" href="#top"><i></i>Three Takes</a>
+    <a class="logo" href="#top"><i></i>PostReady</a>
     <div class="links">
       <a href="#try">Try it</a>
       <a href="#mine" id="navMine" hidden>My videos</a>
-      <a href="#gallery">Gallery</a>
+      <a href="#platforms">Platforms</a>
+      <a href="#gallery">Examples</a>
       <a href="#how">How it works</a>
       <a href="#run">Run it</a>
       <a class="gh" href="https://github.com/backspacevenkat/kimi-product-shorts" target="_blank" rel="noopener">GitHub</a>
@@ -195,11 +229,17 @@
 
 <header id="top">
   <div class="wrap">
-    <div class="eyebrow">
-      <span class="chip">Kimi K3.1 Pro</span><span class="chip">Cerebras</span><span class="chip">OpenClaw</span><span class="chip">HyperFrames</span>
+    <div class="hero">
+      <div>
+        <div class="eyebrow">
+          <span class="chip hot">Cerebras speed</span><span class="chip hot">Runs on OpenClaw</span>
+        </div>
+        <h1>Get content ready for your products in <em>under a minute.</em></h1>
+        <p class="lede">Paste a product link. Get three ready-to-post video ads, each with a different angle, sized for Shorts, Reels, TikTok and your feed.</p>
+        <div class="cta"><a class="big" href="#try">Make my videos</a><span>No footage, no editing, no brief to write.</span></div>
+      </div>
+      <div class="trio3" id="heroTrio" aria-label="Three example ads made from one product link"></div>
     </div>
-    <h1>One link. <em>Three takes.</em></h1>
-    <p class="lede">Paste a product link. Kimi K3.1 Pro studies it, invents three different ad concepts and directs each one scene by scene. Three finished video ads play seconds later.</p>
 
     <div class="try" id="try">
       <div class="auth" id="auth">
@@ -208,8 +248,8 @@
         <span class="authNote" id="authNote">Sign in with Google to make your own videos.</span>
       </div>
       <form id="genForm">
-        <input id="genUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a product link (Shopify stores work best)" aria-label="Product link" required />
-        <button class="go" id="genBtn" type="submit" disabled>Make the video</button>
+        <input id="genUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste your product link (Shopify stores work best)" aria-label="Product link" required />
+        <button class="go" id="genBtn" type="submit" disabled>Make my videos</button>
       </form>
       <div class="samples" id="samples"><span>Or try:</span></div>
       <div class="err" id="genErr" role="alert" hidden></div>
@@ -219,21 +259,25 @@
           <div class="chip" id="pBrand" style="display:inline-block" hidden></div>
           <div class="ptitle" id="pTitle"></div>
           <ul class="stages" id="stages">
-            <li data-s="scraping">Read the product page<span></span></li>
-            <li data-s="queued">OpenClaw agent starts<span></span></li>
-            <li data-s="writing">Kimi directs three ads<span></span></li>
-            <li data-s="playing">Stage the storyboards<span></span></li>
-            <li data-s="rendering">Render the MP4s<span></span></li>
+            <li data-s="scraping">Read your product page<span></span></li>
+            <li data-s="queued">OpenClaw agent picks it up<span></span></li>
+            <li data-s="writing">Three ad ideas written on Cerebras<span></span></li>
+            <li data-s="playing">Scenes built<span></span></li>
+            <li data-s="rendering">Videos exported<span></span></li>
           </ul>
-          <div class="stream" id="stream" aria-label="Kimi's live output"></div>
+          <div class="stream" id="stream" aria-label="Live output from the agent"></div>
           <div id="liveBrief"></div>
-          <p class="fine">Three versions play in your browser first (silent); each MP4 follows a few seconds later with music and sound effects, ready to download for Shorts, Reels, TikTok and more. Copy is model-written and not fact-checked.</p>
+          <p class="fine">Your three ads play here first, without sound. Each finished video follows a few seconds later with music, ready to download for Shorts, Reels, TikTok and more. The wording is AI-written from your product page, so check it before you post.</p>
         </div>
       </div>
       <div class="versions" id="versions" hidden></div>
     </div>
-    <div class="kpis" id="kpis"></div>
-    <p class="note" id="kpiNote"></p>
+    <div class="minute" id="minute" hidden>
+      <div class="bar" id="mBar"></div>
+      <div class="ticks"><span>0 s</span><span>15</span><span>30</span><span>45</span><span>60 s</span></div>
+      <ul id="mLegend"></ul>
+      <p class="note" id="kpiNote"></p>
+    </div>
   </div>
 </header>
 
@@ -244,10 +288,18 @@
   </div>
 </section>
 
+<section id="platforms">
+  <div class="wrap">
+    <div class="shead"><h2>Tailored to every platform</h2></div>
+    <p class="note" style="margin:-8px 0 26px">Every video downloads in the shape and encoding each platform asks for. One click per platform, no editor needed.</p>
+    <div class="plats" id="plats"></div>
+  </div>
+</section>
+
 <section id="gallery">
   <div class="wrap">
     <div class="shead">
-      <h2>Gallery</h2>
+      <h2>Made from one link each</h2>
       <div class="filters" id="filters" role="group" aria-label="Filter by brand"></div>
     </div>
     <div class="grid" id="grid"></div>
@@ -258,15 +310,16 @@
   <div class="wrap">
     <div class="shead"><h2>How it works</h2></div>
     <div class="steps">
-      <div class="step"><div class="n">01 · SCRAPE</div><h3>Read the product page</h3><p>Title, price, description and photos come straight from the store. No manual input.</p><span class="t" id="tScrape"></span></div>
-      <div class="step"><div class="n">02 · DIRECT</div><h3>Kimi directs three ads</h3><p>Kimi K3.1 Pro on Cerebras studies the photos, invents three concepts and writes a storyboard for each: which scenes, in what order, at what pace.</p><span class="t" id="tWrite"></span></div>
-      <div class="step"><div class="n">03 · RENDER</div><h3>Stage and export</h3><p>A kit of eleven designed scene types stages each storyboard in HyperFrames, adds a generated soundtrack, and renders MP4s.</p><span class="t" id="tRender"></span></div>
+      <div class="step"><div class="n">01 · PASTE</div><h3>Paste your product link</h3><p>The title, price, description and photos come straight from your store. Nothing to upload, nothing to type.</p><span class="t" id="tScrape"></span></div>
+      <div class="step"><div class="n">02 · WRITE</div><h3>Three different ad ideas</h3><p>An OpenClaw agent studies your product and writes three concepts, each with its own storyboard, look and pace. Cerebras makes that take seconds instead of minutes.</p><span class="t" id="tWrite"></span></div>
+      <div class="step"><div class="n">03 · POST</div><h3>Videos for every platform</h3><p>Each storyboard becomes a 15-second video with its own soundtrack. Download it sized for Shorts, Reels, TikTok, feed, square or landscape.</p><span class="t" id="tRender"></span></div>
     </div>
     <div class="honest">
-      <b>What these numbers do and don't include</b>
+      <b>The fine print</b>
       <ul>
-        <li>Write time is Kimi's own generation time as reported by Cerebras. During the hackathon each request also waited in a queue first; that wait is shown separately on each video.</li>
-        <li>Copy is written by the model from the product page and has not been fact-checked.</li>
+        <li>The agent's model is Kimi K3.1 Pro, served by Cerebras and run through OpenClaw. Videos are staged and rendered with HyperFrames.</li>
+        <li>"Under a minute" is the work itself: reading the page, writing three ads and rendering three videos. When Cerebras is busy, a request waits in its queue first; that wait is shown separately on each video.</li>
+        <li>The wording is AI-written from the product page and has not been fact-checked.</li>
         <li>Product names and photos belong to their brands. These are demo videos, not ads run by those brands.</li>
       </ul>
     </div>
@@ -340,17 +393,17 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
       <div class="chip" style="display:inline-block">${esc(it.brand)}</div>
       <h3 id="mTitle">${esc(it.concept)}</h3>
       <div class="sub">${esc(it.title)}${it.price ? " · " + esc(it.price) : ""}</div>
-      <h4>Kimi's storyboard</h4>
+      <h4>Storyboard</h4>
       <div class="feat">${it.scenes.map((t, k) => `<div><b>${String(k + 1).padStart(2, "0")} · ${esc(SCENE_NAMES[t] ?? t)}</b></div>`).join("")}</div>
       <h4>Look</h4>
       <div class="sw">${it.palette ? `<div><i style="background:${hex(it.palette.bg)}"></i>${esc(it.palette.bg)}</div><div><i style="background:${hex(it.palette.accent)}"></i>${esc(it.palette.accent)}</div>` : ""}<div>${esc(it.theme)}</div>${it.motif && it.motif !== "none" ? `<div>${esc(it.motif)}</div>` : ""}</div>
       <h4>Timings</h4>
       <table>
         <tr><td>Read the product page</td><td>${fmt(s.scrapeSeconds, 2)} s</td></tr>
-        <tr><td>Kimi directs three ads (${s.tokens ?? "–"} tokens, ${s.tps ?? "–"} tok/s)</td><td>${fmt(s.writeSeconds, 2)} s</td></tr>
+        <tr><td>Three ads written on Cerebras (${s.tokens ?? "–"} tokens, ${s.tps ?? "–"} tok/s)</td><td>${fmt(s.writeSeconds, 2)} s</td></tr>
         <tr><td>Cerebras queue wait before that</td><td>${fmt(s.queueSeconds)} s</td></tr>
-        <tr><td>Render this MP4</td><td>${it.renderSeconds == null ? "–" : fmt(it.renderSeconds) + " s"}</td></tr>
-        <tr><td>Product photos shown to Kimi</td><td>${s.vision ? "yes" : "no (text only)"}</td></tr>
+        <tr><td>Render this video</td><td>${it.renderSeconds == null ? "–" : fmt(it.renderSeconds) + " s"}</td></tr>
+        <tr><td>Product photos studied</td><td>${s.vision ? "yes" : "no (text only)"}</td></tr>
       </table>
       <a class="btn" href="${esc(safeUrl(it.url))}" target="_blank" rel="noopener noreferrer">View product on ${esc(it.domain)}</a>`;
     $("#dlg").showModal();
@@ -377,9 +430,9 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
 
   // ---- live generator ----
   const SAMPLES = [
+    ["3D printer", "https://us.elegoo.com/products/centauri-carbon-2-combo"],
     ["Soda", "https://drinkolipop.com/products/pomegranate-sparkle"],
     ["Lip kit", "https://www.kyliecosmetics.com/products/winter-kissed-matte-lip-kit-hybrid-blush-duo"],
-    ["Cereal", "https://magicspoon.com/products/variety6-protein-with-marshmallows"],
     ["Wallet", "https://www.nomadgoods.com/products/leather-mag-wallet-with-find-my-tracking-brown-camino-leather"],
   ];
   $("#samples").insertAdjacentHTML("beforeend", SAMPLES.map(([l, u]) => `<button type="button" data-u="${esc(u)}">${esc(l)}</button>`).join(""));
@@ -518,14 +571,14 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
             $("#pBrand").textContent = d.brand; $("#pBrand").hidden = false;
             $("#pTitle").textContent = d.title + (d.price ? " · " + d.price : "");
             const w = $("#wait"); w.innerHTML = ""; const img = new Image(); img.alt = ""; img.referrerPolicy = "no-referrer"; img.src = safeUrl(d.thumb); w.append(img);
-            w.insertAdjacentHTML("beforeend", '<div class="spin"></div><div>Kimi is looking at the photos…</div>');
+            w.insertAdjacentHTML("beforeend", '<div class="spin"></div><div>Studying your photos…</div>');
           } else if (ev === "status") {
             if (d.stage === "queued") { if (!document.querySelector('#stages li[data-s="queued"]').classList.contains("now")) setStage("queued"); if (d.note) $("#stream").textContent = d.note + "…"; }
             if (d.stage === "writing") { $("#stream").textContent = ""; setStage("writing"); }
             if (d.stage === "rendering") setStage("rendering");
           } else if (ev === "video") {
             const slot = document.querySelector(`#ver${d.n} .slot`);
-            if (slot) slot.innerHTML = d.failed ? '<span class="pend">MP4 render failed</span>' : downloadMenu(d.id, d.n) + `<span class="pend" style="margin-left:10px">rendered in ${fmt(d.renderSeconds)} s</span>`;
+            if (slot) slot.innerHTML = d.failed ? '<span class="pend">Video render failed</span>' : downloadMenu(d.id, d.n) + `<span class="pend" style="margin-left:10px">rendered in ${fmt(d.renderSeconds)} s</span>`;
             if (--rendersLeft <= 0) { loadMine(); clearInterval(ticker); fixStage("rendering", "done"); document.querySelectorAll("#stages li").forEach((li) => { li.classList.remove("now"); li.classList.add("done"); }); }
           } else if (ev === "token") {
             const el = $("#stream"); el.textContent += d.text; el.scrollTop = el.scrollHeight;
@@ -551,11 +604,11 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
               const el = document.createElement("div"); el.className = "ver"; el.id = "ver" + v.n;
               el.innerHTML = `<div class="phone"><iframe title="${esc(v.label)} version" sandbox="allow-scripts"></iframe></div>
                 <h4>${esc(v.label)}</h4><div class="vhook">${esc(v.brief.hook)}</div>
-                <div class="slot"><span class="pend">Rendering MP4…</span></div>`;
+                <div class="slot"><span class="pend">Rendering video…</span></div>`;
               el.querySelector("iframe").srcdoc = v.html;
               box.append(el);
             });
-            $("#liveBrief").innerHTML = `<div class="sw" style="margin-top:14px"><div>${d.versions.length} versions</div><div>${st.vision ? "Kimi saw the photos" : "text only"}</div></div>`;
+            $("#liveBrief").innerHTML = `<div class="sw" style="margin-top:14px"><div>${d.versions.length} versions</div><div>${st.vision ? "photos studied" : "text only"}</div></div>`;
           } else if (ev === "error") {
             return fail(d.message);
           }
@@ -565,7 +618,7 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
       fail("The connection dropped. Please try again.");
     } finally {
       clearInterval(ticker);
-      busy = false; btn.textContent = "Make the video";
+      busy = false; btn.textContent = "Make my videos";
       refreshMe();
     }
   }
@@ -573,7 +626,7 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
     e.preventDefault();
     const u = $("#genUrl").value.trim();
     if (!u || busy) return;
-    if (!idToken || !quota) { $("#genErr").textContent = "Sign in with Google first, then press Make the video."; $("#genErr").hidden = false; return; }
+    if (!idToken || !quota) { $("#genErr").textContent = "Sign in with Google first, then press Make my videos."; $("#genErr").hidden = false; return; }
     if (quota.used >= quota.limit) return;
     generate(u);
   });
@@ -586,21 +639,31 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
     const tps = median(perProduct.map((x) => x.tps));
     const render = median(items.map((i) => i.renderSeconds));
     const queue = perProduct.map((x) => x.queueSeconds).filter((n) => n != null);
-    $("#kpis").innerHTML = [
-      [items.length, "", `ads directed by Kimi, three per product link`],
-      [fmt(write, 1), "s", "median time for Kimi to direct three ads"],
-      [tps == null ? "–" : Math.round(tps), "tok/s", "median Kimi speed on Cerebras"],
-      [fmt(render, 0), "s", "median MP4 render, three at once"],
-    ].map(([n, u, l]) => `<div class="kpi"><div class="num">${n}<small>${u}</small></div><div class="lab">${l}</div></div>`).join("");
-    if (queue.length) $("#kpiNote").textContent = `Measured during the hackathon. Each request also waited ${Math.round(Math.min(...queue))}–${Math.round(Math.max(...queue))} seconds in the Cerebras queue before Kimi started; that wait is not included in the directing time.`;
-    $("#tScrape").textContent = `median ${fmt(median(perProduct.map((x) => x.scrapeSeconds)), 2)} s`;
-    $("#tWrite").textContent = `median ${fmt(write, 1)} s for three storyboards`;
-    $("#tRender").textContent = `median ${fmt(render, 0)} s per MP4`;
+    const scrape = median(perProduct.map((x) => x.scrapeSeconds));
+    if (write != null && render != null) {
+      const total = (scrape ?? 0) + write + render;
+      const pct = (n) => (Math.max(n, 0.6) / 60 * 100).toFixed(2) + "%";
+      $("#mBar").innerHTML = `<div class="seg a" style="width:${pct(scrape ?? 0)}"></div><div class="seg b" style="width:${pct(write)}">${fmt(write, 0)} s</div><div class="seg c" style="width:${pct(render)}">${fmt(render, 0)} s</div><span class="spare">${Math.round(60 - total)} s to spare</span>`;
+      $("#mLegend").innerHTML = `<li><i style="background:#ffd9c9"></i>Read your product page: ${fmt(scrape, 1)} s</li><li><i style="background:var(--accent)"></i>Write three ads on Cerebras: ${fmt(write, 1)} s${tps == null ? "" : `, at ${Math.round(tps)} tokens a second`}</li><li><i style="background:#ff9a70"></i>Render three videos: ${fmt(render, 0)} s</li>`;
+      $("#minute").hidden = false;
+      $("#kpiNote").textContent = "One minute, drawn to scale, with the median times from the example ads below. When Cerebras is busy, a request waits in its queue before the writing starts; that wait is not drawn.";
+    }
+    $("#tScrape").textContent = `median ${fmt(scrape, 2)} s`;
+    $("#tWrite").textContent = `median ${fmt(write, 1)} s for all three`;
+    $("#tRender").textContent = `median ${fmt(render, 0)} s to render`;
     const brands = ["all", ...new Set(items.map((i) => i.brand))];
     $("#filters").innerHTML = brands.map((t) => `<button aria-pressed="${t === "all"}" data-t="${esc(t)}">${t === "all" ? "All" : esc(t)}</button>`).join("");
     $("#filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.t; document.querySelectorAll("#filters button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); renderGrid(); });
     $("#built").textContent = `Data built ${new Date(d.builtAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}.`;
     renderGrid();
+    // Hero: the three takes of the featured product (first in the data).
+    const heroId = (d.hero ?? items[0].slug).split("-")[0];
+    const trio = items.filter((i) => i.slug.startsWith(heroId + "-")).slice(0, 3);
+    $("#heroTrio").innerHTML = trio.map((i) => `<div class="ph"><video src="media/${esc(i.slug)}.mp4" poster="media/${esc(i.slug)}.jpg" muted loop playsinline autoplay></video></div>`).join("") + `<div class="cap3">One link in. <b>${esc(trio[0].title)}</b>, three ways.</div>`;
+    // Platforms: the same ad exported in each shape.
+    const pf = d.platforms;
+    if (pf) $("#plats").innerHTML = pf.map((p) => `<div class="plat" style="width:calc(var(--ph) * ${p.w} / ${p.h})"><div class="fr"><video src="media/${esc(p.file)}" muted loop playsinline autoplay></video></div><b>${esc(p.ratio)} · ${p.w}×${p.h}</b><div class="names">${p.names.map((n) => `<i>${esc(n)}</i>`).join("")}</div></div>`).join("");
+    else $("#platforms").hidden = true;
   }).catch(() => { $("#grid").textContent = "Could not load video data."; });
 </script>
 </body>

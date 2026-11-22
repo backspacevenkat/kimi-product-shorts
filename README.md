@@ -1,4 +1,4 @@
-# Three Takes
+# PostReady
 
 One product link in, three different 15-second video ads out. Kimi K3.1 Pro on Cerebras directs each one, running as an OpenClaw agent.
 
@@ -117,7 +117,7 @@ Without `OPENCLAW_URL` the generator calls Cerebras directly (needs `CEREBRAS_AP
 
 ## Dashboard
 
-Live showcase: https://kimi-product-shorts.venkatg.workers.dev
+Live: https://postready.venkatg.workers.dev
 
 `site/` is a static dashboard (gallery, briefs, timings) hosted on Cloudflare Workers. It needs no API key.
 
