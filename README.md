@@ -54,6 +54,18 @@ openclaw --profile cerb config set agents.list '[{"id":"main","default":true},{"
 
 `openclaw-skill/product-video/` is an agent skill for the full flow (send the agent a link, it scrapes, writes the brief and renders). Copy it into your OpenClaw workspace `skills/` folder and set `PRODUCT_SHORTS_ROOT` to this repository's path. It is experimental.
 
+## Director mode
+
+In the hosted generator Kimi is the director, not a form-filler. For each product it invents three ad concepts and writes a storyboard for each: 5-7 scenes chosen from a kit, their order and pacing, a palette, and an ambient motif. `src/director.mjs` validates the storyboard and stages it.
+
+- **Scene kit:** statement, problem (search / chat / notification), reveal, callouts, counter, compare, checklist, gallery, gauge (radar / battery / thermometer / ring), price, call to action.
+- **Motifs:** snow, bubbles, sparks, steam, petals, hearts, stars, rain.
+- **Guardrails:** the model never emits markup; text is bounded and fitted; a counter's number must appear in the product data.
+
+Every MP4 also gets a soundtrack synthesised in code (`src/audio.mjs`: music bed, a whoosh on each cut, a chime on the close), and products on plain studio backgrounds are cut out so they float over the scene (`src/cutout.mjs`).
+
+Finished videos download in platform formats: YouTube Shorts, Instagram Reels, TikTok (9:16), Instagram feed (4:5), square (1:1) and landscape (16:9).
+
 ## Styles and versions
 
 Three video styles share one brief format:
@@ -117,6 +129,8 @@ wrangler deploy
 - `src/brief.mjs` – product data to creative brief (Cerebras or OpenClaw)
 - `src/compose.mjs`, `src/compose3d.mjs`, `src/compose-reel.mjs` – the three styles (`src/styles.mjs` picks one)
 - `src/core/` – parsing and prompt logic shared by the CLI and the generator
+- `src/director.mjs` – storyboard validation, the scene kit and the director prompt
+- `src/audio.mjs`, `src/cutout.mjs`, `src/thumb.mjs` – soundtrack, product cutouts, model thumbnails
 - `src/server.mjs` – generator service for the hosted site
 - `src/make.mjs` – command-line entry point
 - `site/` – dashboard page, build script and the Worker that serves video range requests

@@ -56,7 +56,7 @@ const WEB_PLAYER = `
     (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]) : Promise.resolve()).then(() => tl.play(0));
   })();`;
 
-export function compose3d(product, brief, images, { web = false } = {}) {
+export function compose3d(product, brief, images, { web = false, audio = null, cutouts = [] } = {}) {
   const t = THEME[brief.theme] ?? THEME.noir;
   let { bg, accent } = brief.palette;
   if (contrast(bg, accent) < 1.6) accent = lum(bg) > 0.4 ? "#111114" : "#ffd23f";
@@ -69,6 +69,8 @@ export function compose3d(product, brief, images, { web = false } = {}) {
   const bg2 = mix(bg, dark ? "#000000" : "#ffffff", 0.35);
   const up = (s) => (t.upper ? String(s).toUpperCase() : String(s));
   const img = (i) => images[i] ?? images[0];
+  // A transparent cutout of the hero product, when the photo allowed one.
+  const cut = cutouts[brief.heroImage] ?? cutouts.find(Boolean) ?? null;
   const italic = brief.theme === "editorial" ? "font-style:italic;" : "";
   const glow = brief.theme === "neon" ? `text-shadow:0 0 46px ${accent};` : "";
 
@@ -165,6 +167,11 @@ export function compose3d(product, brief, images, { web = false } = {}) {
   #heroCard { position:absolute; left:-330px; top:0; width:660px; height:740px; border-radius:var(--r); overflow:hidden; background:#fff; box-shadow:0 60px 120px rgba(0,0,0,.38); }
   #heroCard img { width:100%; height:100%; object-fit:cover; }
   #shine { position:absolute; top:-20%; left:0; width:38%; height:140%; background:linear-gradient(100deg, transparent 0%, rgba(255,255,255,.55) 50%, transparent 100%); transform:skewX(-14deg); }
+  #heroHalo { position:absolute; left:-380px; top:-10px; width:760px; height:760px; border-radius:50%; background:radial-gradient(circle, ${accent} 0%, transparent 68%); opacity:.75; }
+  #heroCard.cut { background:none; box-shadow:none; overflow:visible; border-radius:0; }
+  #heroCard.cut img { object-fit:contain; filter:drop-shadow(0 46px 44px rgba(0,0,0,.42)); }
+  #ctaImg.cut { overflow:visible; background:rgba(255,255,255,.2); box-shadow:none; }
+  #ctaImg.cut img { object-fit:contain; width:112%; height:112%; margin:-6% 0 0 -6%; filter:drop-shadow(0 40px 40px rgba(0,0,0,.4)); }
   .feat { position:absolute; left:70px; width:940px; height:240px; display:flex; align-items:center; gap:36px; padding:0 44px; border-radius:var(--r); background:var(--glass); border:2px solid var(--gline); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); transform-origin:50% 0%; backface-visibility:hidden; }
   #feat0 { top:1000px; } #feat1 { top:1270px; } #feat2 { top:1540px; }
   .fnum { flex:0 0 auto; font-size:92px; color:var(--accent); ${glow} }
@@ -216,7 +223,7 @@ export function compose3d(product, brief, images, { web = false } = {}) {
 
   <div id="sC" class="scene clip" data-start="${C[0].toFixed(2)}" data-duration="${C[1].toFixed(2)}" data-track-index="2">
     <div class="stage" id="stC">
-      <div id="heroWrap"><div id="heroCard"><img src="${esc(img(brief.heroImage))}" alt="" /><div id="shine"></div></div></div>
+      <div id="heroWrap">${cut ? `<div id="heroHalo"></div><div id="heroCard" class="cut"><img src="${esc(cut)}" alt="" /></div>` : `<div id="heroCard"><img src="${esc(img(brief.heroImage))}" alt="" /><div id="shine"></div></div>`}</div>
       ${feats}
     </div>
   </div>
@@ -226,13 +233,14 @@ export function compose3d(product, brief, images, { web = false } = {}) {
       <div id="rays"></div>
       <div id="dash"></div>
       ${confetti.map((c, i) => `<div class="conf" id="cf${i}" style="width:${c.w}px;height:${c.h}px;background:${c.c};border-radius:${c.round ? "50%" : "4px"}"></div>`).join("")}
-      <div id="ctaImg"><img src="${esc(img(brief.heroImage))}" alt="" /></div>
+      <div id="ctaImg"${cut ? ' class="cut"' : ""}><img src="${esc(cut ?? img(brief.heroImage))}" alt="" /></div>
       <div id="ctaName" class="display">${esc(name)}</div>
       ${product.price ? `<div id="ctaPrice" class="display">${product.compareAt ? `<s>${esc(product.compareAt)}</s>` : ""}${esc(product.price)}</div>` : ""}
       <div id="btn" class="display"><span>${esc(up(brief.cta))}</span><div id="btnShine"></div></div>
       <div id="domain">${esc(product.domain)}</div>
     </div>
   </div>
+  ${audio ? `<audio class="clip" data-start="0" data-duration="${DURATION}" data-track-index="9" data-volume="0.9" src="${esc(audio)}"></audio>` : ""}
 </div>
 <script>
   const tl = gsap.timeline({ paused: true });
@@ -277,8 +285,9 @@ export function compose3d(product, brief, images, { web = false } = {}) {
   const c = ${C[0].toFixed(2)};
   tl.from("#heroWrap", { y: -160, z: -500, opacity: 0, duration: 0.7, ease: "expo.out" }, c + 0.3);
   tl.fromTo("#heroCard", { rotationY: -22, rotationX: 7 }, { rotationY: 20, rotationX: -5, duration: ${(C[1] - 0.3).toFixed(2)}, ease: "sine.inOut" }, c + 0.3);
-  tl.fromTo("#shine", { x: -420 }, { x: 900, duration: 1.1, ease: "power2.inOut" }, c + 0.9);
-  tl.fromTo("#shine", { x: -420 }, { x: 900, duration: 1.1, ease: "power2.inOut" }, c + 3.1);
+  ${cut ? `tl.fromTo("#heroHalo", { scale: 0.5, opacity: 0 }, { scale: 1.15, opacity: 0.75, duration: 1.2, ease: "power2.out" }, c + 0.3);
+  tl.fromTo("#heroCard img", { y: 0 }, { y: -26, duration: 1.3, ease: "sine.inOut", yoyo: true, repeat: 2 }, c + 0.9);` : `tl.fromTo("#shine", { x: -420 }, { x: 900, duration: 1.1, ease: "power2.inOut" }, c + 0.9);
+  tl.fromTo("#shine", { x: -420 }, { x: 900, duration: 1.1, ease: "power2.inOut" }, c + 3.1);`}
   [0, 1, 2].forEach((i) => {
     const at = c + 0.75 + i * 0.95;
     tl.from("#feat" + i, { rotationX: -88, z: -260, opacity: 0, duration: 0.65, ease: "back.out(1.3)" }, at);

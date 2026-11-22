@@ -76,17 +76,17 @@ export const factsOf = (product) => ({
 });
 
 // Chat-completions request body. imageData: data URIs for the first few product photos.
-export function briefRequest(product, { imageData = [], effort = "low", model = MODEL, stream = false, variants = false } = {}) {
+export function briefRequest(product, { imageData = [], effort = "low", model = MODEL, stream = false, variants = false, system = null } = {}) {
   const vision = imageData.length > 0;
   const text = `${untrusted(factsOf(product))}\n\nImages are indexed 0..${product.images.length - 1}${vision ? `; the first ${Math.min(4, imageData.length)} are attached in order` : ""}.`;
   return {
     model,
     reasoning_effort: effort,
-    max_completion_tokens: variants ? 4500 : 2500,
+    max_completion_tokens: system ? 7000 : variants ? 4500 : 2500,
     temperature: 0.7,
     stream,
     messages: [
-      { role: "system", content: variants ? SYSTEM_VARIANTS : SYSTEM },
+      { role: "system", content: system ?? (variants ? SYSTEM_VARIANTS : SYSTEM) },
       { role: "user", content: vision ? [{ type: "text", text }, ...imageData.slice(0, 4).map((url) => ({ type: "image_url", image_url: { url } }))] : text },
     ],
   };

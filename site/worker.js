@@ -145,7 +145,7 @@ async function generate(request, env, ctx) {
     upstream = await fetch(`${base}/generate`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-backend-key": env.BACKEND_KEY },
-      body: JSON.stringify({ url: target.href }),
+      body: JSON.stringify({ url: target.href, assetBase: `${new URL(request.url).origin}/api/asset` }),
     });
   } catch {
     await refund();
@@ -200,17 +200,21 @@ async function myVideos(request, env) {
   return json({ jobs: metas.filter(Boolean) });
 }
 
-async function video(request, env, id, download) {
+const FORMAT_NAMES = { shorts: "youtube-shorts", reels: "instagram-reels", tiktok: "tiktok", square: "square", feed: "feed-4x5", landscape: "landscape" };
+
+async function video(request, env, id, url) {
   const base = await backend(env);
   if (!base || !env.BACKEND_KEY) return json({ error: "The generator is offline right now." }, 503);
+  const format = url.searchParams.get("format");
+  if (format && !FORMAT_NAMES[format]) return json({ error: "Unknown format." }, 400);
   const headers = { "x-backend-key": env.BACKEND_KEY };
   const range = request.headers.get("range");
   if (range) headers.range = range;
-  const res = await fetch(`${base}/video/${id}.mp4`, { method: request.method, headers });
+  const res = await fetch(`${base}/video/${id}.mp4${format ? `?format=${format}` : ""}`, { method: request.method, headers });
   if (res.status !== 200 && res.status !== 206) return json({ error: "That video isn't available." }, res.status === 416 ? 416 : 404);
   const out = new Headers({ "content-type": "video/mp4", "accept-ranges": "bytes", "cache-control": "private, max-age=3600" });
   for (const h of ["content-length", "content-range"]) if (res.headers.get(h)) out.set(h, res.headers.get(h));
-  if (download) out.set("content-disposition", `attachment; filename="product-short-${id.slice(0, 8)}.mp4"`);
+  if (format || url.searchParams.has("download")) out.set("content-disposition", `attachment; filename="product-short-${id.slice(0, 8)}${format ? "-" + FORMAT_NAMES[format] : ""}.mp4"`);
   return new Response(res.body, { status: res.status, headers: out });
 }
 
@@ -254,8 +258,16 @@ export default {
       }
       if (p === "/api/generate") return request.method === "POST" ? generate(request, env, ctx) : json({ error: "POST only" }, 405);
       if (p === "/api/my" && request.method === "GET") return myVideos(request, env);
+      const as = /^\/api\/asset\/([0-9a-f-]{36})\/(cut[0-9]\.png)$/.exec(p);
+      if (as && request.method === "GET") {
+        const base = await backend(env);
+        if (!base || !env.BACKEND_KEY) return json({ error: "Not available." }, 503);
+        const r = await fetch(`${base}/asset/${as[1]}/${as[2]}`, { headers: { "x-backend-key": env.BACKEND_KEY } });
+        if (!r.ok) return json({ error: "Not found." }, 404);
+        return new Response(r.body, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400", "access-control-allow-origin": "*" } });
+      }
       const v = /^\/api\/video\/([0-9a-f-]{36}-[0-9])\.mp4$/.exec(p);
-      if (v && (request.method === "GET" || request.method === "HEAD")) return video(request, env, v[1], url.searchParams.has("download"));
+      if (v && (request.method === "GET" || request.method === "HEAD")) return video(request, env, v[1], url);
       return json({ error: "Not found" }, 404);
     }
     if (p.startsWith("/media/") && p.endsWith(".mp4") && (request.method === "GET" || request.method === "HEAD")) return media(request, env, url);

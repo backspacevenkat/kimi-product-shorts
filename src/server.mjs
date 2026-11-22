@@ -19,8 +19,11 @@ import { fileURLToPath } from "node:url";
 import { scrape, download } from "./scrape.mjs";
 import { thumbnail } from "./thumb.mjs";
 import { writeBrief } from "./brief.mjs";
-import { MODEL, briefRequest, normalizeVariants, parse } from "./core/brief-core.mjs";
-import { composeVideo, VERSION_STYLES, STYLE_LABELS } from "./styles.mjs";
+import { MODEL, briefRequest, parse } from "./core/brief-core.mjs";
+import { composeVideo, VERSION_STYLES, STYLE_LABELS, SOUND_CUES } from "./styles.mjs";
+import { soundtrack } from "./audio.mjs";
+import { cutout } from "./cutout.mjs";
+import { SYSTEM_DIRECTOR, normalizeStoryboard, composeDirected, storyboardCues } from "./director.mjs";
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -70,7 +73,7 @@ async function render(dir) {
 async function streamBrief(product, imageData, send) {
   const t0 = Date.now();
   // Cerebras sheds load with 429s when busy. Wait and try again a few times before giving up.
-  const body = JSON.stringify(briefRequest(product, { imageData, stream: true, variants: true }));
+  const body = JSON.stringify(briefRequest(product, { imageData, stream: true, system: SYSTEM_DIRECTOR }));
   let res;
   for (let attempt = 0; ; attempt++) {
     res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
@@ -126,7 +129,7 @@ async function streamBrief(product, imageData, send) {
   }
   const completion = timeInfo?.completion_time ?? (firstAt ? (Date.now() - firstAt) / 1000 : null);
   return {
-    briefs: normalizeVariants(parse(content), product, VERSION_STYLES.length),
+    raw: parse(content),
     stats: {
       model: MODEL,
       via: "cerebras",
@@ -140,9 +143,41 @@ async function streamBrief(product, imageData, send) {
   };
 }
 
+// Platform exports. The three vertical platforms take the same picture; what
+// differs is the encode each one recommends. Other shapes keep the whole
+// vertical video and fill the sides with a blurred copy of itself.
+const V = "-c:v libx264 -profile:v high -pix_fmt yuv420p -r 30 -movflags +faststart -c:a aac -ar 48000 -ac 2";
+const blurFill = (w, h) => `[0:v]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},boxblur=28:2,eq=brightness=-0.12[bg];[0:v]scale=-2:${h}[fg];[bg][fg]overlay=(W-w)/2:0`;
+export const FORMATS = {
+  shorts: { label: "YouTube Shorts", args: `-vf scale=1080:1920 ${V} -b:v 10M -maxrate 12M -bufsize 20M -b:a 192k` },
+  reels: { label: "Instagram Reels", args: `-vf scale=1080:1920 ${V} -b:v 6M -maxrate 8M -bufsize 12M -b:a 128k` },
+  tiktok: { label: "TikTok", args: `-vf scale=1080:1920 ${V} -b:v 8M -maxrate 10M -bufsize 16M -b:a 128k` },
+  square: { label: "Square 1:1", args: `-filter_complex ${blurFill(1080, 1080)} ${V} -b:v 6M -b:a 128k` },
+  feed: { label: "Feed 4:5", args: `-filter_complex ${blurFill(1080, 1350)} ${V} -b:v 6M -b:a 128k` },
+  landscape: { label: "Landscape 16:9", args: `-filter_complex ${blurFill(1920, 1080)} ${V} -b:v 10M -b:a 192k` },
+};
+const exporting = new Map();
+async function exportFormat(source, format) {
+  await stat(source);
+  const out = path.join(path.dirname(source), `${format}.mp4`);
+  if (await stat(out).then(() => true, () => false)) return out;
+  // One encode per file at a time, however many people ask for it.
+  if (!exporting.has(out)) {
+    const tmp = `${out}.part.mp4`;
+    exporting.set(
+      out,
+      run("ffmpeg", ["-v", "error", "-y", "-i", source, ...FORMATS[format].args.split(" "), tmp], { maxBuffer: 1 << 24 })
+        .then(() => rename(tmp, out))
+        .finally(() => exporting.delete(out)),
+    );
+  }
+  await exporting.get(out);
+  return out;
+}
+
 let active = 0;
 
-async function generate(url, send) {
+async function generate(url, send, assetBase) {
   const id = randomUUID();
   const dir = path.join(JOBS, id);
   await mkdir(path.join(dir, "assets"), { recursive: true });
@@ -185,7 +220,7 @@ async function generate(url, send) {
     }
     return streamBrief(product, thumbs, send);
   })();
-  const [all, { briefs: raws, stats }] = await Promise.all([Promise.all(downloads), briefJob]);
+  const [all, { briefs: legacy, raw, stats }] = await Promise.all([Promise.all(downloads), briefJob]);
 
   const keptIdx = all.map((k, i) => (k ? i : -1)).filter((i) => i >= 0);
   if (!keptIdx.length) throw new Error("Couldn't download that product's photos.");
@@ -194,12 +229,35 @@ async function generate(url, send) {
   const local = keptIdx.map((i) => all[i].rel);
   const remote = product.images.map((s) => sized(s, 1080));
 
-  // One version per style, each with its own creative angle. Browser versions first.
-  const versions = raws.map((raw, n) => {
-    const style = VERSION_STYLES[n];
-    const brief = { ...raw, heroImage: remap(raw.heroImage), featureImages: raw.featureImages.map(remap) };
-    return { n, style, label: STYLE_LABELS[style], brief };
+  // Lift products off plain studio backgrounds. One cutout per kept photo, or null.
+  const cuts = await Promise.all(
+    keptIdx.slice(0, 5).map(async (srcIdx, i) => {
+      try {
+        const name = `cut${i}.png`;
+        return (await cutout(path.join(dir, all[srcIdx].rel), all[srcIdx].kind, path.join(dir, "assets", name))) ? name : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const cutLocal = cuts.map((n) => (n ? `assets/${n}` : null));
+  // The browser version loads cutouts through the site; without that it uses the plain photos.
+  const cutRemote = cuts.map((n) => (n && assetBase ? `${assetBase}/${id}/${n}` : null));
+
+  // Three versions. Normally each is a storyboard the model directed; the OpenClaw
+  // path still returns a plain brief, which the older fixed styles stage.
+  const pool = Array.isArray(raw?.variants) && raw.variants.length ? raw.variants : raw ? [raw] : [];
+  const versions = VERSION_STYLES.map((fallbackStyle, n) => {
+    if (legacy) {
+      const b = legacy[n];
+      const brief = { ...b, heroImage: remap(b.heroImage), featureImages: b.featureImages.map(remap) };
+      return { n, style: fallbackStyle, label: STYLE_LABELS[fallbackStyle], brief, theme: brief.theme, cues: SOUND_CUES[fallbackStyle], compose: (imgs, o) => composeVideo(product, brief, imgs, { style: fallbackStyle, ...o }) };
+    }
+    const sb = normalizeStoryboard(pool[n % Math.max(1, pool.length)], product);
+    return { n, style: "director", label: sb.concept || `Concept ${n + 1}`, brief: { hook: sb.scenes.map((x) => x.type).join(" → "), theme: sb.theme }, theme: sb.theme, cues: storyboardCues(sb), compose: (imgs, o) => composeDirected(product, sb, imgs, o) };
   });
+  const publicVersion = (v) => ({ n: v.n, style: v.style, label: v.label, brief: { hook: v.brief.hook, theme: v.brief.theme } });
+
   // Kept with the job so it can be listed later under the account that made it.
   await writeFile(
     path.join(dir, "meta.json"),
@@ -210,7 +268,7 @@ async function generate(url, send) {
       versions: versions.map((v) => ({ n: v.n, style: v.style, label: v.label, hook: v.brief.hook, theme: v.brief.theme })),
     }),
   );
-  send("result", { id, stats: { ...stats, scrapeSeconds }, versions: versions.map((v) => ({ ...v, html: composeVideo(product, v.brief, remote, { style: v.style, web: true }) })) });
+  send("result", { id, stats: { ...stats, scrapeSeconds }, versions: versions.map((v) => ({ ...publicVersion(v), html: v.compose(remote, { web: true, cutouts: cutRemote }) })) });
 
   // Then the MP4s, through the render pool.
   send("status", { stage: "rendering" });
@@ -220,7 +278,8 @@ async function generate(url, send) {
       await mkdir(vdir, { recursive: true });
       await Promise.all([
         cp(path.join(dir, "assets"), path.join(vdir, "assets"), { recursive: true }),
-        writeFile(path.join(vdir, "index.html"), composeVideo(product, v.brief, local, { style: v.style })),
+        writeFile(path.join(vdir, "music.wav"), soundtrack({ theme: v.theme, ...v.cues })),
+        writeFile(path.join(vdir, "index.html"), v.compose(local, { audio: "music.wav", cutouts: cutLocal })),
         writeFile(path.join(vdir, "hyperframes.json"), JSON.stringify({ paths: { assets: "assets" } })),
       ]);
       const tR = Date.now();
@@ -240,6 +299,18 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/health") return res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, active, rendering }));
   if (!authed(req)) return res.writeHead(401).end("unauthorized");
 
+  const a = /^\/asset\/([0-9a-f-]{36})\/(cut[0-9]\.png)$/.exec(url.pathname);
+  if (a && req.method === "GET") {
+    const file = path.join(JOBS, a[1], "assets", a[2]);
+    try {
+      const size = (await stat(file)).size;
+      res.writeHead(200, { "content-type": "image/png", "content-length": size, "cache-control": "public, max-age=86400" });
+      return createReadStream(file).pipe(res);
+    } catch {
+      return res.writeHead(404).end("not found");
+    }
+  }
+
   const j = /^\/job\/([0-9a-f-]{36})$/.exec(url.pathname);
   if (j && req.method === "GET") {
     try {
@@ -254,7 +325,16 @@ const server = http.createServer(async (req, res) => {
 
   const m = /^\/video\/([0-9a-f-]{36})-([0-9])\.mp4$/.exec(url.pathname);
   if (m && (req.method === "GET" || req.method === "HEAD")) {
-    const file = path.join(JOBS, m[1], `v${m[2]}`, "video.mp4");
+    let file = path.join(JOBS, m[1], `v${m[2]}`, "video.mp4");
+    const format = url.searchParams.get("format");
+    if (format) {
+      if (!FORMATS[format]) return res.writeHead(400).end("unknown format");
+      try {
+        file = await exportFormat(file, format);
+      } catch {
+        return res.writeHead(404).end("not found");
+      }
+    }
     let size;
     try {
       size = (await stat(file)).size;
@@ -281,9 +361,13 @@ const server = http.createServer(async (req, res) => {
       if (body.length > 4000) return res.writeHead(413).end();
     }
     let target;
+    let assetBase = null;
     try {
-      target = new URL(JSON.parse(body).url);
+      const parsed = JSON.parse(body);
+      target = new URL(parsed.url);
       if (target.protocol !== "https:") throw new Error();
+      // Where the site serves this job's cutouts from; only an https origin + path is accepted.
+      if (typeof parsed.assetBase === "string" && parsed.assetBase.length < 200 && new URL(parsed.assetBase).protocol === "https:") assetBase = parsed.assetBase.replace(/\/$/, "");
     } catch {
       return res.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({ error: "Send {\"url\": \"https://…\"}" }));
     }
@@ -295,7 +379,7 @@ const server = http.createServer(async (req, res) => {
     const beat = setInterval(() => open && res.write(": keep-alive\n\n"), 15000);
     active++;
     try {
-      await generate(target.href, send);
+      await generate(target.href, send, assetBase);
     } catch (e) {
       console.error(new Date().toISOString(), "job failed:", e?.message ?? e);
       const msg = String(e?.message ?? e);

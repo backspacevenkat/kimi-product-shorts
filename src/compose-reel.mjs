@@ -44,12 +44,13 @@ const WEB_PLAYER = `
     (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]) : Promise.resolve()).then(() => tl.play(0));
   })();`;
 
-export function composeReel(product, brief, images, { web = false } = {}) {
+export function composeReel(product, brief, images, { web = false, audio = null, cutouts = [] } = {}) {
   const t = THEME[brief.theme] ?? THEME.noir;
   const accent = brief.palette.accent;
   const onAccent = inkOn(accent);
   const up = (s) => (t.upper ? String(s).toUpperCase() : String(s));
   const img = (i) => images[i] ?? images[0];
+  const cut = cutouts[brief.heroImage] ?? cutouts.find(Boolean) ?? null;
   const italic = brief.theme === "editorial" ? "font-style:italic;" : "";
 
   const hookWords = up(brief.hook).split(" ").filter(Boolean);
@@ -143,6 +144,8 @@ export function composeReel(product, brief, images, { web = false } = {}) {
   #dBg { filter:blur(34px) brightness(.55) saturate(1.2); }
   #dCard { position:absolute; left:140px; top:300px; width:800px; height:800px; border-radius:48px; overflow:hidden; box-shadow:0 60px 130px rgba(0,0,0,.55); border:10px solid #fff; }
   #dCard img { width:100%; height:100%; object-fit:cover; display:block; }
+  #dCard.cut { border:none; box-shadow:none; overflow:visible; border-radius:0; background:radial-gradient(circle, ${accent}cc 0%, transparent 66%); }
+  #dCard.cut img { object-fit:contain; filter:drop-shadow(0 50px 50px rgba(0,0,0,.5)); }
   #dName { position:absolute; left:60px; right:60px; top:1170px; text-align:center; font-size:${Math.round(nameSize * 0.86)}px; text-wrap:balance; }
   #dPrice { position:absolute; left:0; right:0; top:1420px; text-align:center; font-size:132px; }
   #dPrice s { font-size:60px; opacity:.6; margin-right:22px; font-weight:500; font-family:"Inter", sans-serif; letter-spacing:0; }
@@ -172,7 +175,7 @@ ${featScenes}
 
   <div id="sD" class="scene clip" data-start="${D[0].toFixed(2)}" data-duration="${D[1].toFixed(2)}" data-track-index="5">
     <img class="bleed" id="dBg" src="${esc(img(brief.heroImage))}" alt="" />
-    <div id="dCard"><img src="${esc(img(brief.heroImage))}" alt="" /></div>
+    <div id="dCard"${cut ? ' class="cut"' : ""}><img src="${esc(cut ?? img(brief.heroImage))}" alt="" /></div>
     <div id="dName" class="display">${esc(name)}</div>
     ${product.price ? `<div id="dPrice" class="display">${product.compareAt ? `<s>${esc(product.compareAt)}</s>` : ""}${esc(product.price)}</div>` : ""}
     <div id="btn" class="display"><span>${esc(up(brief.cta))}</span><div id="btnShine"></div></div>
@@ -184,6 +187,7 @@ ${featScenes}
     <div id="bars">${segs.map((_, i) => `<div class="bar"><i id="bar${i}"></i></div>`).join("")}</div>
     <div id="who"><div id="avatar" class="display">${esc(String(product.brand).trim().charAt(0).toUpperCase())}</div><span>${esc(product.brand)}</span></div>
   </div>
+  ${audio ? `<audio class="clip" data-start="0" data-duration="${DURATION}" data-track-index="9" data-volume="0.9" src="${esc(audio)}"></audio>` : ""}
 </div>
 <script>
   const tl = gsap.timeline({ paused: true });

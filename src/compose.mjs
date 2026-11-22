@@ -52,7 +52,7 @@ const WEB_PLAYER = `
     (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]) : Promise.resolve()).then(start);
   })();`;
 
-export function compose(product, brief, images, { web = false } = {}) {
+export function compose(product, brief, images, { web = false, audio = null, cutouts = [] } = {}) {
   const t = THEME[brief.theme] ?? THEME.noir;
   let { bg, accent } = brief.palette;
   if (contrast(bg, accent) < 1.6) accent = lum(bg) > 0.4 ? "#111114" : "#ffd23f";
@@ -62,6 +62,7 @@ export function compose(product, brief, images, { web = false } = {}) {
   const line = ink === "#ffffff" ? "rgba(255,255,255,.16)" : "rgba(12,12,16,.14)";
   const up = (s) => (t.upper ? String(s).toUpperCase() : String(s));
   const img = (i) => images[i] ?? images[0];
+  const cut = cutouts[brief.heroImage] ?? cutouts.find(Boolean) ?? null;
 
   const hookWords = up(brief.hook).split(" ").filter(Boolean);
   const hookSize = fit(hookWords.reduce((a, b) => (a.length >= b.length ? a : b), ""), 960, t.display === "Unbounded" ? 230 : 330, t.display === "Unbounded" ? 0.74 : 0.6);
@@ -113,6 +114,10 @@ export function compose(product, brief, images, { web = false } = {}) {
   .chip { display:inline-block; font-weight:700; font-size:30px; letter-spacing:.16em; text-transform:uppercase; padding:16px 28px; border-radius:999px; }
   .card { background:#fff; border-radius:var(--r); overflow:hidden; display:flex; align-items:center; justify-content:center; }
   .card img, .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .card.cut { background:none; box-shadow:none !important; overflow:visible; }
+  .card.cut img { object-fit:contain; filter:drop-shadow(0 46px 44px rgba(0,0,0,.4)); }
+  #ctaCard.cut { background:rgba(255,255,255,.22); }
+  #ctaCard.cut img { width:112%; height:112%; margin:-6%; }
   .wipe { position:absolute; left:0; top:0; width:${W}px; height:${H}px; z-index:50; }
   .blob { position:absolute; border-radius:50%; filter:blur(120px); opacity:.5; }
   ${web ? WEB_STYLE : ""}
@@ -167,7 +172,7 @@ export function compose(product, brief, images, { web = false } = {}) {
 
   <div id="sB" class="scene clip" data-start="${B[0]}" data-duration="${B[1]}" data-track-index="1">
     <div class="blob"></div>
-    <div id="heroCard" class="card"><img id="heroImg" src="${esc(img(brief.heroImage))}" alt="" /></div>
+    <div id="heroCard" class="card${cut ? " cut" : ""}"><img id="heroImg" src="${esc(cut ?? img(brief.heroImage))}" alt="" /></div>
     ${product.price ? `<div id="price" class="display">${esc(product.price)}</div>` : ""}
     <div id="name" class="display">${esc(up(brief.name))}</div>
     <div id="tag">${esc(brief.tagline)}</div>
@@ -180,7 +185,7 @@ export function compose(product, brief, images, { web = false } = {}) {
   </div>
 
   <div id="sD" class="scene clip" data-start="${D[0]}" data-duration="${D[1]}" data-track-index="3">
-    <div id="ctaCard" class="card"><img src="${esc(img(brief.heroImage))}" alt="" /></div>
+    <div id="ctaCard" class="card${cut ? " cut" : ""}"><img src="${esc(cut ?? img(brief.heroImage))}" alt="" /></div>
     <div id="ctaName" class="display">${esc(up(brief.name))}</div>
     ${product.price ? `<div id="ctaPrice" class="display">${product.compareAt ? `<s>${esc(product.compareAt)}</s>` : ""}${esc(product.price)}</div>` : ""}
     <div id="btn" class="display">${esc(up(brief.cta))}</div>
@@ -188,6 +193,7 @@ export function compose(product, brief, images, { web = false } = {}) {
   </div>
 
   ${cuts.map((_, i) => `<div class="wipe" id="wipe${i}" style="background:${wipeColor[i]}"></div>`).join("\n  ")}
+  ${audio ? `<audio class="clip" data-start="0" data-duration="${DURATION}" data-track-index="9" data-volume="0.9" src="${esc(audio)}"></audio>` : ""}
 </div>
 <script>
   const tl = gsap.timeline({ paused: true });

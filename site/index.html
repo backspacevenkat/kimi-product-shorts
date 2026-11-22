@@ -151,6 +151,14 @@
   .jver p { font-size:13.5px; color:var(--soft); min-height:2.6em; }
   .jver a { font-size:13.5px; font-weight:600; color:var(--accent); text-decoration:none; }
   @media (max-width:820px) { .jvers { grid-template-columns:repeat(3, 72%); overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:6px; } .jver { scroll-snap-align:start; } }
+  details.dl { display:inline-block; position:relative; margin-top:10px; }
+  details.dl summary { list-style:none; cursor:pointer; font-weight:600; font-size:14px; padding:8px 14px; border-radius:10px; background:var(--accent); color:var(--on-accent); }
+  details.dl summary::-webkit-details-marker { display:none; }
+  details.dl summary::after { content:" ▾"; }
+  details.dl > div { position:absolute; left:0; bottom:calc(100% + 6px); z-index:15; min-width:250px; background:var(--panel); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:6px; }
+  details.dl > div a { display:flex; justify-content:space-between; gap:16px; padding:9px 12px; border-radius:8px; font-size:14.5px; font-weight:500; color:var(--ink); text-decoration:none; }
+  details.dl > div a:hover { background:var(--chip); }
+  details.dl > div a span { color:var(--soft); font-size:13px; font-variant-numeric:tabular-nums; }
   .ptitle { font-family:"Space Grotesk", sans-serif; font-weight:700; font-size:22px; line-height:1.15; }
   .err { color:#d92d20; font-weight:600; font-size:15px; margin-top:10px; }
   .fine { font-size:13px; color:var(--soft); margin-top:12px; }
@@ -191,7 +199,7 @@
       <span class="chip">Kimi K3.1 Pro</span><span class="chip">Cerebras</span><span class="chip">OpenClaw</span><span class="chip">HyperFrames</span>
     </div>
     <h1>Product link in. <em>Video ad</em> out.</h1>
-    <p class="lede">Paste a store link below. Kimi looks at the product photos, writes the hook and picks the look, and the ad plays right here.</p>
+    <p class="lede">Paste a store link below. Kimi studies the product, invents three different ad concepts and directs each one scene by scene. They play right here seconds later.</p>
 
     <div class="try" id="try">
       <div class="auth" id="auth">
@@ -213,13 +221,13 @@
           <ul class="stages" id="stages">
             <li data-s="scraping">Read the product page<span></span></li>
             <li data-s="queued">Wait in the Cerebras queue<span></span></li>
-            <li data-s="writing">Kimi writes three briefs<span></span></li>
-            <li data-s="playing">Compose three versions<span></span></li>
+            <li data-s="writing">Kimi directs three ads<span></span></li>
+            <li data-s="playing">Stage the storyboards<span></span></li>
             <li data-s="rendering">Render the MP4s<span></span></li>
           </ul>
           <div class="stream" id="stream" aria-label="Kimi's live output"></div>
           <div id="liveBrief"></div>
-          <p class="fine">Three versions play in your browser first; each MP4 follows a few seconds later. Copy is model-written and not fact-checked.</p>
+          <p class="fine">Three versions play in your browser first (silent); each MP4 follows a few seconds later with music and sound effects, ready to download for Shorts, Reels, TikTok and more. Copy is model-written and not fact-checked.</p>
         </div>
       </div>
       <div class="versions" id="versions" hidden></div>
@@ -395,6 +403,10 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
     $("#authNote").textContent = signedIn ? (left ? "" : "You've used your videos. Thanks for trying it!") : $("#authNote").textContent;
     $("#genBtn").disabled = !signedIn || !left || busy;
   }
+  // ---- downloads sized and encoded for each platform ----
+  const PLATFORMS = [["shorts", "YouTube Shorts", "9:16"], ["reels", "Instagram Reels", "9:16"], ["tiktok", "TikTok", "9:16"], ["feed", "Instagram feed", "4:5"], ["square", "Square post", "1:1"], ["landscape", "YouTube / X landscape", "16:9"]];
+  const downloadMenu = (id, n) => `<details class="dl"><summary>Download</summary><div>${PLATFORMS.map(([f, label, ratio]) => `<a href="/api/video/${encodeURIComponent(id)}-${n}.mp4?format=${f}" download>${label}<span>${ratio}</span></a>`).join("")}<a href="/api/video/${encodeURIComponent(id)}-${n}.mp4?download" download>Original file<span>9:16</span></a></div></details>`;
+
   // ---- my videos: everything this account has generated ----
   async function loadMine() {
     const signedIn = !!(idToken && quota);
@@ -410,9 +422,9 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
           <div><b>${esc(j.product.title)}</b><span>${esc(j.product.brand)}${j.product.price ? " · " + esc(j.product.price) : ""} · ${new Date(j.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span></div></div>
         <div class="jvers">${j.versions.map((v) => `
           <div class="jver">
-            ${v.ready ? `<video src="/api/video/${encodeURIComponent(j.id)}-${v.n}.mp4#t=4.6" controls playsinline loop muted preload="metadata"></video>` : `<div class="wait2">Still rendering…</div>`}
+            ${v.ready ? `<video src="/api/video/${encodeURIComponent(j.id)}-${v.n}.mp4#t=4.6" controls playsinline loop preload="metadata"></video>` : `<div class="wait2">Still rendering…</div>`}
             <h4>${esc(v.label)}</h4><p>${esc(v.hook)}</p>
-            ${v.ready ? `<a href="/api/video/${encodeURIComponent(j.id)}-${v.n}.mp4?download" download>Download MP4</a>` : ""}
+            ${v.ready ? downloadMenu(j.id, v.n) : ""}
           </div>`).join("")}</div>
       </div>`).join("") : `<p class="note" style="margin:0">Videos you make will be kept here.</p>`;
   }
@@ -495,7 +507,7 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
             if (d.stage === "rendering") setStage("rendering");
           } else if (ev === "video") {
             const slot = document.querySelector(`#ver${d.n} .slot`);
-            if (slot) slot.innerHTML = d.failed ? '<span class="pend">MP4 render failed</span>' : `<a class="btn" href="/api/video/${encodeURIComponent(d.id)}-${d.n}.mp4?download" download>Download MP4 · ${fmt(d.renderSeconds)} s</a>`;
+            if (slot) slot.innerHTML = d.failed ? '<span class="pend">MP4 render failed</span>' : downloadMenu(d.id, d.n) + `<span class="pend" style="margin-left:10px">rendered in ${fmt(d.renderSeconds)} s</span>`;
             if (--rendersLeft <= 0) { loadMine(); clearInterval(ticker); fixStage("rendering", "done"); document.querySelectorAll("#stages li").forEach((li) => { li.classList.remove("now"); li.classList.add("done"); }); }
           } else if (ev === "token") {
             const el = $("#stream"); el.textContent += d.text; el.scrollTop = el.scrollHeight;
@@ -514,7 +526,7 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
             d.versions.forEach((v) => {
               const el = document.createElement("div"); el.className = "ver"; el.id = "ver" + v.n;
               el.innerHTML = `<div class="phone"><iframe title="${esc(v.label)} version" sandbox="allow-scripts"></iframe></div>
-                <h4>${esc(v.label)}</h4><div class="vhook">${esc(v.brief.hook)} · ${esc(v.brief.theme)}</div>
+                <h4>${esc(v.label)}</h4><div class="vhook">${esc(v.brief.hook)}</div>
                 <div class="slot"><span class="pend">Rendering MP4…</span></div>`;
               el.querySelector("iframe").srcdoc = v.html;
               box.append(el);
