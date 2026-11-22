@@ -9,7 +9,7 @@
 // Every request must carry x-backend-key matching BACKEND_KEY. The Worker owns
 // login and per-user limits; this service owns the model key and the rendering.
 import http from "node:http";
-import { mkdir, writeFile, rename, stat, cp } from "node:fs/promises";
+import { mkdir, writeFile, readFile, rename, stat, cp } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -200,6 +200,16 @@ async function generate(url, send) {
     const brief = { ...raw, heroImage: remap(raw.heroImage), featureImages: raw.featureImages.map(remap) };
     return { n, style, label: STYLE_LABELS[style], brief };
   });
+  // Kept with the job so it can be listed later under the account that made it.
+  await writeFile(
+    path.join(dir, "meta.json"),
+    JSON.stringify({
+      id,
+      createdAt: new Date().toISOString(),
+      product: { brand: product.brand, title: product.title, price: product.price, domain: product.domain, url: product.url, thumb: sized(product.images[0], 320) },
+      versions: versions.map((v) => ({ n: v.n, style: v.style, label: v.label, hook: v.brief.hook, theme: v.brief.theme })),
+    }),
+  );
   send("result", { id, stats: { ...stats, scrapeSeconds }, versions: versions.map((v) => ({ ...v, html: composeVideo(product, v.brief, remote, { style: v.style, web: true }) })) });
 
   // Then the MP4s, through the render pool.
@@ -230,16 +240,38 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/health") return res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, active, rendering }));
   if (!authed(req)) return res.writeHead(401).end("unauthorized");
 
-  const m = /^\/video\/([0-9a-f-]{36})-([0-9])\.mp4$/.exec(url.pathname);
-  if (m && req.method === "GET") {
-    const file = path.join(JOBS, m[1], `v${m[2]}`, "video.mp4");
+  const j = /^\/job\/([0-9a-f-]{36})$/.exec(url.pathname);
+  if (j && req.method === "GET") {
     try {
-      const s = await stat(file);
-      res.writeHead(200, { "content-type": "video/mp4", "content-length": s.size });
-      return createReadStream(file).pipe(res);
+      const meta = JSON.parse(await readFile(path.join(JOBS, j[1], "meta.json"), "utf8"));
+      // A version is ready once its MP4 exists.
+      meta.versions = await Promise.all(meta.versions.map(async (v) => ({ ...v, ready: await stat(path.join(JOBS, j[1], `v${v.n}`, "video.mp4")).then(() => true, () => false) })));
+      return res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(meta));
     } catch {
       return res.writeHead(404).end("not found");
     }
+  }
+
+  const m = /^\/video\/([0-9a-f-]{36})-([0-9])\.mp4$/.exec(url.pathname);
+  if (m && (req.method === "GET" || req.method === "HEAD")) {
+    const file = path.join(JOBS, m[1], `v${m[2]}`, "video.mp4");
+    let size;
+    try {
+      size = (await stat(file)).size;
+    } catch {
+      return res.writeHead(404).end("not found");
+    }
+    // Byte ranges, so the file plays and seeks in every browser.
+    const r = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ""));
+    if (r && (r[1] !== "" || r[2] !== "")) {
+      const start = r[1] === "" ? Math.max(size - Number(r[2]), 0) : Number(r[1]);
+      const end = r[1] === "" || r[2] === "" ? size - 1 : Math.min(Number(r[2]), size - 1);
+      if (start >= size || start > end) return res.writeHead(416, { "content-range": `bytes */${size}` }).end();
+      res.writeHead(206, { "content-type": "video/mp4", "accept-ranges": "bytes", "content-range": `bytes ${start}-${end}/${size}`, "content-length": end - start + 1 });
+      return req.method === "HEAD" ? res.end() : createReadStream(file, { start, end }).pipe(res);
+    }
+    res.writeHead(200, { "content-type": "video/mp4", "accept-ranges": "bytes", "content-length": size });
+    return req.method === "HEAD" ? res.end() : createReadStream(file).pipe(res);
   }
 
   if (url.pathname === "/generate" && req.method === "POST") {

@@ -2,7 +2,8 @@
 //   GET  /api/config            -> { clientId, limit }
 //   GET  /api/me                -> { email, used, limit }            (Google sign-in required)
 //   POST /api/generate {url}    -> server-sent events from the generator (sign-in + quota)
-//   GET  /api/video/<id>.mp4    -> the rendered MP4 for a finished job
+//   GET  /api/my                -> the signed-in account's own videos
+//   GET  /api/video/<id>-<n>.mp4 -> a rendered MP4 (add ?download to save it)
 //   GET  /media/*.mp4           -> gallery videos with byte-range support
 //   everything else             -> static assets
 //
@@ -62,7 +63,7 @@ export class Quota {
     this.state = state;
   }
   async fetch(request) {
-    const { op, limit } = await request.json();
+    const { op, limit, jobId } = await request.json();
     let used = (await this.state.storage.get("used")) ?? 0;
     let ok = true;
     if (op === "reserve") {
@@ -70,13 +71,20 @@ export class Quota {
       if (ok) await this.state.storage.put("used", ++used);
     } else if (op === "refund") {
       if (used > 0) await this.state.storage.put("used", --used);
+    } else if (op === "addJob") {
+      // Newest first, capped; same atomic store as the counter.
+      const jobs = ((await this.state.storage.get("jobs")) ?? []).filter((x) => x.id !== jobId);
+      jobs.unshift({ id: jobId, at: Date.now() });
+      await this.state.storage.put("jobs", jobs.slice(0, 40));
+    } else if (op === "jobs") {
+      return Response.json({ ok, used, jobs: (await this.state.storage.get("jobs")) ?? [] });
     }
     return Response.json({ ok, used });
   }
 }
-const quota = async (env, sub, op, limit = 0) => {
+const quota = async (env, sub, op, limit = 0, jobId = undefined) => {
   const stub = env.QUOTA.get(env.QUOTA.idFromName(sub));
-  return (await stub.fetch("https://quota/", { method: "POST", body: JSON.stringify({ op, limit }) })).json();
+  return (await stub.fetch("https://quota/", { method: "POST", body: JSON.stringify({ op, limit, jobId }) })).json();
 };
 const getUsed = async (env, sub) => (await quota(env, sub, "get")).used;
 
@@ -149,18 +157,25 @@ async function generate(request, env, ctx) {
     return json({ error: j.error ?? "The generator is offline right now." }, upstream.status === 503 ? 503 : 502);
   }
 
-  let sawResult = false;
+  // Watch the stream go by: note the job id when the result arrives and file it under this account.
+  let jobId = null;
   const dec = new TextDecoder();
   let tail = "";
   const watch = new TransformStream({
     transform(chunk, controller) {
-      const text = tail + dec.decode(chunk, { stream: true });
-      if (text.includes("event: result")) sawResult = true;
-      tail = text.slice(-20);
+      if (!jobId) {
+        const text = tail + dec.decode(chunk, { stream: true });
+        const hit = /event: result\ndata: \{"id":"([0-9a-f-]{36})"/.exec(text);
+        if (hit) {
+          jobId = hit[1];
+          ctx.waitUntil(quota(env, user.sub, "addJob", 0, jobId));
+        }
+        tail = text.slice(-80);
+      }
       controller.enqueue(chunk);
     },
     flush() {
-      if (!sawResult) ctx.waitUntil(refund());
+      if (!jobId) ctx.waitUntil(refund());
     },
   });
   return new Response(upstream.body.pipeThrough(watch), {
@@ -168,14 +183,35 @@ async function generate(request, env, ctx) {
   });
 }
 
-async function video(env, id) {
+// The signed-in account's own videos, newest first, with details from the generator.
+async function myVideos(request, env) {
+  const { user, error } = await requireUser(request, env);
+  if (error) return error;
+  const base = await backend(env);
+  const { jobs } = await quota(env, user.sub, "jobs");
+  if (!base || !env.BACKEND_KEY) return json({ jobs: [], offline: true });
+  const metas = await Promise.all(
+    jobs.slice(0, 20).map((j) =>
+      fetch(`${base}/job/${j.id}`, { headers: { "x-backend-key": env.BACKEND_KEY } })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ),
+  );
+  return json({ jobs: metas.filter(Boolean) });
+}
+
+async function video(request, env, id, download) {
   const base = await backend(env);
   if (!base || !env.BACKEND_KEY) return json({ error: "The generator is offline right now." }, 503);
-  const res = await fetch(`${base}/video/${id}.mp4`, { headers: { "x-backend-key": env.BACKEND_KEY } });
-  if (!res.ok) return json({ error: "That video isn't available." }, 404);
-  return new Response(res.body, {
-    headers: { "content-type": "video/mp4", "content-disposition": `attachment; filename="product-short-${id.slice(0, 8)}.mp4"`, "cache-control": "private, max-age=3600" },
-  });
+  const headers = { "x-backend-key": env.BACKEND_KEY };
+  const range = request.headers.get("range");
+  if (range) headers.range = range;
+  const res = await fetch(`${base}/video/${id}.mp4`, { method: request.method, headers });
+  if (res.status !== 200 && res.status !== 206) return json({ error: "That video isn't available." }, res.status === 416 ? 416 : 404);
+  const out = new Headers({ "content-type": "video/mp4", "accept-ranges": "bytes", "cache-control": "private, max-age=3600" });
+  for (const h of ["content-length", "content-range"]) if (res.headers.get(h)) out.set(h, res.headers.get(h));
+  if (download) out.set("content-disposition", `attachment; filename="product-short-${id.slice(0, 8)}.mp4"`);
+  return new Response(res.body, { status: res.status, headers: out });
 }
 
 // ---------- gallery media with byte ranges --------------------------------
@@ -217,8 +253,9 @@ export default {
         return json({ email: user.email, used: await getUsed(env, user.sub), limit: LIMIT(env) });
       }
       if (p === "/api/generate") return request.method === "POST" ? generate(request, env, ctx) : json({ error: "POST only" }, 405);
+      if (p === "/api/my" && request.method === "GET") return myVideos(request, env);
       const v = /^\/api\/video\/([0-9a-f-]{36}-[0-9])\.mp4$/.exec(p);
-      if (v && request.method === "GET") return video(env, v[1]);
+      if (v && (request.method === "GET" || request.method === "HEAD")) return video(request, env, v[1], url.searchParams.has("download"));
       return json({ error: "Not found" }, 404);
     }
     if (p.startsWith("/media/") && p.endsWith(".mp4") && (request.method === "GET" || request.method === "HEAD")) return media(request, env, url);

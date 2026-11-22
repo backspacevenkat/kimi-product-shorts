@@ -139,6 +139,18 @@
   .ver .btn { margin-top:10px; padding:8px 14px; font-size:14px; }
   .ver .pend { display:inline-block; margin-top:10px; font-size:13.5px; color:var(--soft); }
   @media (max-width:820px) { .versions { grid-template-columns:repeat(3, 78%); overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:8px; } .ver { scroll-snap-align:start; } .ver .phone { max-width:none; } }
+  .job { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:18px; box-shadow:var(--shadow); margin-bottom:18px; }
+  .jhead { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+  .jhead img { width:56px; height:56px; border-radius:12px; object-fit:cover; background:var(--chip); flex:none; }
+  .jhead b { font-family:"Space Grotesk", sans-serif; font-size:18px; display:block; line-height:1.2; }
+  .jhead span { font-size:13.5px; color:var(--soft); }
+  .jvers { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
+  .jver video, .jver .wait2 { width:100%; aspect-ratio:9/16; border-radius:16px; background:#000; display:block; }
+  .jver .wait2 { display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; }
+  .jver h4 { font-family:"Space Grotesk", sans-serif; font-size:16px; margin:10px 0 2px; }
+  .jver p { font-size:13.5px; color:var(--soft); min-height:2.6em; }
+  .jver a { font-size:13.5px; font-weight:600; color:var(--accent); text-decoration:none; }
+  @media (max-width:820px) { .jvers { grid-template-columns:repeat(3, 72%); overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:6px; } .jver { scroll-snap-align:start; } }
   .ptitle { font-family:"Space Grotesk", sans-serif; font-weight:700; font-size:22px; line-height:1.15; }
   .err { color:#d92d20; font-weight:600; font-size:15px; margin-top:10px; }
   .fine { font-size:13px; color:var(--soft); margin-top:12px; }
@@ -164,6 +176,7 @@
     <a class="logo" href="#top"><i></i>Kimi Product Shorts</a>
     <div class="links">
       <a href="#try">Try it</a>
+      <a href="#mine" id="navMine" hidden>My videos</a>
       <a href="#gallery">Gallery</a>
       <a href="#how">How it works</a>
       <a href="#run">Run it</a>
@@ -215,6 +228,13 @@
     <p class="note" id="kpiNote"></p>
   </div>
 </header>
+
+<section id="mine" hidden>
+  <div class="wrap">
+    <div class="shead"><h2>My videos</h2><span class="note" id="mineNote" style="margin:0"></span></div>
+    <div id="mineList"></div>
+  </div>
+</section>
 
 <section id="gallery">
   <div class="wrap">
@@ -375,14 +395,37 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
     $("#authNote").textContent = signedIn ? (left ? "" : "You've used your videos. Thanks for trying it!") : $("#authNote").textContent;
     $("#genBtn").disabled = !signedIn || !left || busy;
   }
+  // ---- my videos: everything this account has generated ----
+  async function loadMine() {
+    const signedIn = !!(idToken && quota);
+    $("#mine").hidden = !signedIn; $("#navMine").hidden = !signedIn;
+    if (!signedIn) return;
+    const r = await fetch("/api/my", { headers: authHeaders() }).catch(() => null);
+    if (!r || !r.ok) { $("#mineNote").textContent = "Couldn't load your videos."; return; }
+    const d = await r.json();
+    $("#mineNote").textContent = d.offline ? "The generator is offline, so your videos can't be shown right now." : d.jobs.length ? `${d.jobs.length} product${d.jobs.length === 1 ? "" : "s"}` : "";
+    $("#mineList").innerHTML = d.jobs.length ? d.jobs.map((j) => `
+      <div class="job">
+        <div class="jhead"><img src="${esc(safeUrl(j.product.thumb))}" alt="" referrerpolicy="no-referrer" loading="lazy" />
+          <div><b>${esc(j.product.title)}</b><span>${esc(j.product.brand)}${j.product.price ? " · " + esc(j.product.price) : ""} · ${new Date(j.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span></div></div>
+        <div class="jvers">${j.versions.map((v) => `
+          <div class="jver">
+            ${v.ready ? `<video src="/api/video/${encodeURIComponent(j.id)}-${v.n}.mp4#t=4.6" controls playsinline loop muted preload="metadata"></video>` : `<div class="wait2">Still rendering…</div>`}
+            <h4>${esc(v.label)}</h4><p>${esc(v.hook)}</p>
+            ${v.ready ? `<a href="/api/video/${encodeURIComponent(j.id)}-${v.n}.mp4?download" download>Download MP4</a>` : ""}
+          </div>`).join("")}</div>
+      </div>`).join("") : `<p class="note" style="margin:0">Videos you make will be kept here.</p>`;
+  }
+
   async function refreshMe() {
     if (!idToken) { quota = null; return paintAuth(); }
     const r = await fetch("/api/me", { headers: authHeaders() }).catch(() => null);
     if (r && r.ok) quota = await r.json();
     else { quota = null; idToken = null; try { sessionStorage.removeItem("idt"); } catch {} }
     paintAuth();
+    loadMine();
   }
-  $("#signOut").addEventListener("click", () => { idToken = null; quota = null; try { sessionStorage.removeItem("idt"); } catch {} $("#authNote").textContent = "Sign in with Google to make your own videos."; paintAuth(); });
+  $("#signOut").addEventListener("click", () => { idToken = null; quota = null; try { sessionStorage.removeItem("idt"); } catch {} $("#authNote").textContent = "Sign in with Google to make your own videos."; paintAuth(); loadMine(); });
   let busy = false;
   fetch("/api/config").then((r) => r.json()).then((cfg) => {
     if (cfg.limit) $("#authNote").textContent = `Sign in with Google to make up to ${cfg.limit} videos of your own.`;
@@ -452,8 +495,8 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
             if (d.stage === "rendering") setStage("rendering");
           } else if (ev === "video") {
             const slot = document.querySelector(`#ver${d.n} .slot`);
-            if (slot) slot.innerHTML = d.failed ? '<span class="pend">MP4 render failed</span>' : `<a class="btn" href="/api/video/${encodeURIComponent(d.id)}-${d.n}.mp4" download>Download MP4 · ${fmt(d.renderSeconds)} s</a>`;
-            if (--rendersLeft <= 0) { clearInterval(ticker); fixStage("rendering", "done"); document.querySelectorAll("#stages li").forEach((li) => { li.classList.remove("now"); li.classList.add("done"); }); }
+            if (slot) slot.innerHTML = d.failed ? '<span class="pend">MP4 render failed</span>' : `<a class="btn" href="/api/video/${encodeURIComponent(d.id)}-${d.n}.mp4?download" download>Download MP4 · ${fmt(d.renderSeconds)} s</a>`;
+            if (--rendersLeft <= 0) { loadMine(); clearInterval(ticker); fixStage("rendering", "done"); document.querySelectorAll("#stages li").forEach((li) => { li.classList.remove("now"); li.classList.add("done"); }); }
           } else if (ev === "token") {
             const el = $("#stream"); el.textContent += d.text; el.scrollTop = el.scrollHeight;
           } else if (ev === "result") {
