@@ -12,3 +12,4 @@ site/dist/
 .dev.vars
 jobs/
 .preview/
+site/gallery/

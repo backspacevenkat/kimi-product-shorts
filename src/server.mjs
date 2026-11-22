@@ -264,20 +264,20 @@ async function generate(url, send, assetBase) {
       return { n, style: fallbackStyle, label: STYLE_LABELS[fallbackStyle], brief, theme: brief.theme, cues: SOUND_CUES[fallbackStyle], compose: (imgs, o) => composeVideo(product, brief, imgs, { style: fallbackStyle, ...o }) };
     }
     const sb = normalizeStoryboard(pool[n % Math.max(1, pool.length)], product);
-    return { n, style: "director", label: sb.concept || `Concept ${n + 1}`, brief: { hook: sb.scenes.map((x) => x.type).join(" → "), theme: sb.theme }, theme: sb.theme, cues: storyboardCues(sb), compose: (imgs, o) => composeDirected(product, sb, imgs, o) };
+    return { n, style: "director", label: sb.concept || `Concept ${n + 1}`, brief: { hook: sb.scenes.map((x) => x.type).join(" → "), theme: sb.theme }, theme: sb.theme, palette: sb.palette, motif: sb.motif, scenes: sb.scenes.map((x) => x.type), cues: storyboardCues(sb), compose: (imgs, o) => composeDirected(product, sb, imgs, o) };
   });
   const publicVersion = (v) => ({ n: v.n, style: v.style, label: v.label, brief: { hook: v.brief.hook, theme: v.brief.theme } });
 
   // Kept with the job so it can be listed later under the account that made it.
-  await writeFile(
-    path.join(dir, "meta.json"),
-    JSON.stringify({
-      id,
-      createdAt: new Date().toISOString(),
-      product: { brand: product.brand, title: product.title, price: product.price, domain: product.domain, url: product.url, thumb: sized(product.images[0], 320) },
-      versions: versions.map((v) => ({ n: v.n, style: v.style, label: v.label, hook: v.brief.hook, theme: v.brief.theme })),
-    }),
-  );
+  const meta = {
+    id,
+    createdAt: new Date().toISOString(),
+    product: { brand: product.brand, title: product.title, price: product.price, domain: product.domain, url: product.url, thumb: sized(product.images[0], 320) },
+    stats: { ...stats, scrapeSeconds },
+    versions: versions.map((v) => ({ n: v.n, style: v.style, label: v.label, hook: v.brief.hook, theme: v.brief.theme, palette: v.palette ?? null, motif: v.motif ?? null, scenes: v.scenes ?? null })),
+  };
+  const saveMeta = () => writeFile(path.join(dir, "meta.json"), JSON.stringify(meta));
+  await saveMeta();
   send("result", { id, stats: { ...stats, scrapeSeconds }, versions: versions.map((v) => ({ ...publicVersion(v), html: v.compose(remote, { web: true, cutouts: cutRemote }) })) });
 
   // Then the MP4s, through the render pool.
@@ -295,13 +295,16 @@ async function generate(url, send, assetBase) {
       const tR = Date.now();
       try {
         await render(vdir);
-        send("video", { id, n: v.n, renderSeconds: +((Date.now() - tR) / 1000).toFixed(1) });
+        const renderSeconds = +((Date.now() - tR) / 1000).toFixed(1);
+        meta.versions[v.n].renderSeconds = renderSeconds;
+        send("video", { id, n: v.n, renderSeconds });
       } catch (e) {
         console.error(new Date().toISOString(), `render v${v.n} failed:`, String(e?.message ?? e).slice(0, 200));
         send("video", { id, n: v.n, failed: true });
       }
     }),
   );
+  await saveMeta(); // now with render times
 }
 
 const server = http.createServer(async (req, res) => {

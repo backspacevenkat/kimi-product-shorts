@@ -16,6 +16,18 @@ const RENDER = process.argv.includes("--render");
 await rm(DIST, { recursive: true, force: true });
 await mkdir(path.join(DIST, "media"), { recursive: true });
 
+// Preferred source: ads directed on the generator, pulled into site/gallery
+// (gallery.json plus web-sized media). The older per-video folders are the fallback.
+const GALLERY = path.join(ROOT, "site", "gallery");
+if (existsSync(path.join(GALLERY, "gallery.json"))) {
+  const { items } = JSON.parse(await readFile(path.join(GALLERY, "gallery.json"), "utf8"));
+  for (const f of await readdir(path.join(GALLERY, "media"))) await copyFile(path.join(GALLERY, "media", f), path.join(DIST, "media", f));
+  await writeFile(path.join(DIST, "data.json"), JSON.stringify({ builtAt: new Date().toISOString(), items }));
+  for (const page of ["index.html", "privacy.html"]) await copyFile(path.join(ROOT, "site", page), path.join(DIST, page));
+  console.log(`site/dist ready: ${items.length} directed ads`);
+  process.exit(0);
+}
+
 const items = [];
 for (const slug of (await readdir(path.join(ROOT, "videos"))).sort()) {
   const dir = path.join(ROOT, "videos", slug);

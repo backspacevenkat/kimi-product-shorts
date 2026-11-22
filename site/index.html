@@ -248,7 +248,7 @@
   <div class="wrap">
     <div class="shead">
       <h2>Gallery</h2>
-      <div class="filters" id="filters" role="group" aria-label="Filter by visual style"></div>
+      <div class="filters" id="filters" role="group" aria-label="Filter by brand"></div>
     </div>
     <div class="grid" id="grid"></div>
   </div>
@@ -259,8 +259,8 @@
     <div class="shead"><h2>How it works</h2></div>
     <div class="steps">
       <div class="step"><div class="n">01 · SCRAPE</div><h3>Read the product page</h3><p>Title, price, description and photos come straight from the store. No manual input.</p><span class="t" id="tScrape"></span></div>
-      <div class="step"><div class="n">02 · DIRECT</div><h3>Kimi writes the brief</h3><p>Kimi K3.1 Pro on Cerebras sees the photos and returns the hook, tagline, three benefits, colours and a visual style.</p><span class="t" id="tWrite"></span></div>
-      <div class="step"><div class="n">03 · RENDER</div><h3>Compose and export</h3><p>A fixed, designed HyperFrames template builds the scenes, so the model can't break the layout. Then it renders to MP4.</p><span class="t" id="tRender"></span></div>
+      <div class="step"><div class="n">02 · DIRECT</div><h3>Kimi directs three ads</h3><p>Kimi K3.1 Pro on Cerebras studies the photos, invents three concepts and writes a storyboard for each: which scenes, in what order, at what pace.</p><span class="t" id="tWrite"></span></div>
+      <div class="step"><div class="n">03 · RENDER</div><h3>Stage and export</h3><p>A kit of eleven designed scene types stages each storyboard in HyperFrames, adds a generated soundtrack, and renders MP4s.</p><span class="t" id="tRender"></span></div>
     </div>
     <div class="honest">
       <b>What these numbers do and don't include</b>
@@ -309,7 +309,7 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
   let filter = "all";
 
   function card(it, i) {
-    return `<button class="card" data-i="${i}" aria-label="${esc(it.brand)}: ${esc(it.brief.hook)}">
+    return `<button class="card" data-i="${i}" aria-label="${esc(it.brand)}: ${esc(it.concept)}">
       <div class="vid">
         <img src="media/${esc(it.slug)}.jpg" alt="" loading="lazy" />
         <video src="media/${esc(it.slug)}.mp4" muted loop playsinline preload="none" hidden></video>
@@ -317,50 +317,44 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
       </div>
       <div class="meta">
         <div class="brand">${esc(it.brand)}</div>
-        <div class="hook">${esc(it.brief.hook)}</div>
-        <div class="row"><span class="dot" style="background:${hex(it.brief.palette.bg)}"></span><span class="dot" style="background:${hex(it.brief.palette.accent)}"></span><span>${esc(it.brief.theme)}</span><span>·</span><span>${it.stats.via === "openclaw" ? "via OpenClaw" : fmt(it.stats.writeSeconds, 2) + "s write"}</span></div>
+        <div class="hook">${esc(it.concept)}</div>
+        <div class="row">${it.palette ? `<span class="dot" style="background:${hex(it.palette.bg)}"></span><span class="dot" style="background:${hex(it.palette.accent)}"></span>` : ""}<span>${it.scenes.length} scenes</span>${it.motif && it.motif !== "none" ? `<span>·</span><span>${esc(it.motif)}</span>` : ""}</div>
       </div>
     </button>`;
   }
 
   function renderGrid() {
-    const list = items.map((it, i) => [it, i]).filter(([it]) => filter === "all" || it.brief.theme === filter);
+    const list = items.map((it, i) => [it, i]).filter(([it]) => filter === "all" || it.brand === filter);
     $("#grid").innerHTML = list.map(([it, i]) => card(it, i)).join("");
   }
 
+  const SCENE_NAMES = { statement: "Headline", problem: "The problem", reveal: "Product reveal", callouts: "Callouts", counter: "Counter", compare: "Comparison", checklist: "Checklist", gallery: "Photo gallery", gauge: "Gauge", price: "Price tag", cta: "Call to action" };
   function openDetail(i) {
     const it = items[i];
     const s = it.stats;
     const v = $("#mVideo");
     v.src = `media/${it.slug}.mp4`;
     v.poster = `media/${it.slug}.jpg`;
+    v.muted = false;
     $("#mBody").innerHTML = `
       <div class="chip" style="display:inline-block">${esc(it.brand)}</div>
-      <h3 id="mTitle">${esc(it.brief.hook)}</h3>
+      <h3 id="mTitle">${esc(it.concept)}</h3>
       <div class="sub">${esc(it.title)}${it.price ? " · " + esc(it.price) : ""}</div>
-      <h4>Kimi's brief</h4>
-      <table>
-        <tr><td>Tagline</td><td>${esc(it.brief.tagline)}</td></tr>
-        <tr><td>Call to action</td><td>${esc(it.brief.cta)}</td></tr>
-        <tr><td>Visual style</td><td>${esc(it.brief.theme)}</td></tr>
-      </table>
-      <h4>Benefits</h4>
-      <div class="feat">${it.brief.features.map((f) => `<div><b>${esc(f.title)}</b><span>${esc(f.line)}</span></div>`).join("")}</div>
-      <h4>Colours chosen</h4>
-      <div class="sw"><div><i style="background:${hex(it.brief.palette.bg)}"></i>${esc(it.brief.palette.bg)}</div><div><i style="background:${hex(it.brief.palette.accent)}"></i>${esc(it.brief.palette.accent)}</div></div>
+      <h4>Kimi's storyboard</h4>
+      <div class="feat">${it.scenes.map((t, k) => `<div><b>${String(k + 1).padStart(2, "0")} · ${esc(SCENE_NAMES[t] ?? t)}</b></div>`).join("")}</div>
+      <h4>Look</h4>
+      <div class="sw">${it.palette ? `<div><i style="background:${hex(it.palette.bg)}"></i>${esc(it.palette.bg)}</div><div><i style="background:${hex(it.palette.accent)}"></i>${esc(it.palette.accent)}</div>` : ""}<div>${esc(it.theme)}</div>${it.motif && it.motif !== "none" ? `<div>${esc(it.motif)}</div>` : ""}</div>
       <h4>Timings</h4>
       <table>
-        <tr><td>Scrape product page</td><td>${fmt(it.timing.scrape, 2)} s</td></tr>
-        ${s.via === "openclaw"
-          ? `<tr><td>Brief via OpenClaw agent turn (incl. queue)</td><td>${fmt(s.wallSeconds)} s</td></tr>`
-          : `<tr><td>Kimi writes brief (${s.tokens ?? "–"} tokens, ${s.tps ?? "–"} tok/s)</td><td>${fmt(s.writeSeconds, 2)} s</td></tr>
-             <tr><td>Cerebras queue wait before that</td><td>${fmt(s.queueSeconds)} s</td></tr>`}
-        <tr><td>Render MP4</td><td>${it.timing.render == null ? "–" : fmt(it.timing.render) + " s"}</td></tr>
-        <tr><td>Product photos used by Kimi</td><td>${s.vision ? "yes" : "no (text only)"}</td></tr>
+        <tr><td>Read the product page</td><td>${fmt(s.scrapeSeconds, 2)} s</td></tr>
+        <tr><td>Kimi directs three ads (${s.tokens ?? "–"} tokens, ${s.tps ?? "–"} tok/s)</td><td>${fmt(s.writeSeconds, 2)} s</td></tr>
+        <tr><td>Cerebras queue wait before that</td><td>${fmt(s.queueSeconds)} s</td></tr>
+        <tr><td>Render this MP4</td><td>${it.renderSeconds == null ? "–" : fmt(it.renderSeconds) + " s"}</td></tr>
+        <tr><td>Product photos shown to Kimi</td><td>${s.vision ? "yes" : "no (text only)"}</td></tr>
       </table>
       <a class="btn" href="${esc(safeUrl(it.url))}" target="_blank" rel="noopener noreferrer">View product on ${esc(it.domain)}</a>`;
     $("#dlg").showModal();
-    v.play().catch(() => {});
+    v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
   }
 
   function closeDlg() { const v = $("#mVideo"); v.pause(); v.removeAttribute("src"); v.load(); $("#dlg").close(); }
@@ -580,23 +574,24 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
 
   fetch("data.json").then((r) => r.json()).then((d) => {
     items = d.items;
-    const direct = items.filter((i) => i.stats.via === "cerebras");
-    const write = median(direct.map((i) => i.stats.writeSeconds));
-    const tps = median(direct.map((i) => i.stats.tps));
-    const render = median(items.map((i) => i.timing.render));
-    const queue = direct.map((i) => i.stats.queueSeconds).filter((n) => n != null);
+    // One brief call covers a product's three ads, so count each product's numbers once.
+    const perProduct = [...new Map(items.map((i) => [i.slug.split("-")[0], i.stats])).values()];
+    const write = median(perProduct.map((x) => x.writeSeconds));
+    const tps = median(perProduct.map((x) => x.tps));
+    const render = median(items.map((i) => i.renderSeconds));
+    const queue = perProduct.map((x) => x.queueSeconds).filter((n) => n != null);
     $("#kpis").innerHTML = [
-      [items.length, "", "product videos, all from one link each"],
-      [fmt(write, 2), "s", "median time for Kimi to write a brief"],
+      [items.length, "", `ads directed by Kimi, three per product link`],
+      [fmt(write, 1), "s", "median time for Kimi to direct three ads"],
       [tps == null ? "–" : Math.round(tps), "tok/s", "median Kimi speed on Cerebras"],
-      [fmt(render, 0), "s", "median MP4 render on a laptop"],
+      [fmt(render, 0), "s", "median MP4 render, three at once"],
     ].map(([n, u, l]) => `<div class="kpi"><div class="num">${n}<small>${u}</small></div><div class="lab">${l}</div></div>`).join("");
-    if (queue.length) $("#kpiNote").textContent = `Measured during the hackathon. Each request also waited ${Math.round(Math.min(...queue))}–${Math.round(Math.max(...queue))} seconds in the Cerebras queue before Kimi started; that wait is not included in the write time.`;
-    $("#tScrape").textContent = `median ${fmt(median(items.map((i) => i.timing.scrape)), 2)} s`;
-    $("#tWrite").textContent = `median ${fmt(write, 2)} s of generation`;
-    $("#tRender").textContent = `median ${fmt(render, 0)} s`;
-    const themes = ["all", ...new Set(items.map((i) => i.brief.theme))];
-    $("#filters").innerHTML = themes.map((t) => `<button aria-pressed="${t === "all"}" data-t="${esc(t)}">${t === "all" ? "All" : esc(t[0].toUpperCase() + t.slice(1))}</button>`).join("");
+    if (queue.length) $("#kpiNote").textContent = `Measured during the hackathon. Each request also waited ${Math.round(Math.min(...queue))}–${Math.round(Math.max(...queue))} seconds in the Cerebras queue before Kimi started; that wait is not included in the directing time.`;
+    $("#tScrape").textContent = `median ${fmt(median(perProduct.map((x) => x.scrapeSeconds)), 2)} s`;
+    $("#tWrite").textContent = `median ${fmt(write, 1)} s for three storyboards`;
+    $("#tRender").textContent = `median ${fmt(render, 0)} s per MP4`;
+    const brands = ["all", ...new Set(items.map((i) => i.brand))];
+    $("#filters").innerHTML = brands.map((t) => `<button aria-pressed="${t === "all"}" data-t="${esc(t)}">${t === "all" ? "All" : esc(t)}</button>`).join("");
     $("#filters").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.t; document.querySelectorAll("#filters button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); renderGrid(); });
     $("#built").textContent = `Data built ${new Date(d.builtAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}.`;
     renderGrid();
