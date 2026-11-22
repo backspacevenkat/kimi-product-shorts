@@ -405,7 +405,31 @@ BRIEF_VIA=openclaw node src/make.mjs https://store.example.com/products/some-pro
   }
   // ---- downloads sized and encoded for each platform ----
   const PLATFORMS = [["shorts", "YouTube Shorts", "9:16"], ["reels", "Instagram Reels", "9:16"], ["tiktok", "TikTok", "9:16"], ["feed", "Instagram feed", "4:5"], ["square", "Square post", "1:1"], ["landscape", "YouTube / X landscape", "16:9"]];
-  const downloadMenu = (id, n) => `<details class="dl"><summary>Download</summary><div>${PLATFORMS.map(([f, label, ratio]) => `<a href="/api/video/${encodeURIComponent(id)}-${n}.mp4?format=${f}" download>${label}<span>${ratio}</span></a>`).join("")}<a href="/api/video/${encodeURIComponent(id)}-${n}.mp4?download" download>Original file<span>9:16</span></a></div></details>`;
+  const downloadMenu = (id, n) => `<details class="dl"><summary>Download</summary><div>${PLATFORMS.map(([f, label, ratio]) => `<a href="#" data-dl="/api/video/${encodeURIComponent(id)}-${n}.mp4?format=${f}" data-name="product-short-${f}.mp4">${label}<span>${ratio}</span></a>`).join("")}<a href="/api/video/${encodeURIComponent(id)}-${n}.mp4?download" download>Original file<span>9:16</span></a></div></details>`;
+
+  // Platform exports need the signed-in account, so they are fetched with it and saved from the page.
+  document.addEventListener("click", async (e) => {
+    const a = e.target.closest("a[data-dl]");
+    if (!a) return;
+    e.preventDefault();
+    if (a.dataset.busy) return;
+    const label = a.firstChild.textContent;
+    a.dataset.busy = "1"; a.firstChild.textContent = "Preparing…";
+    try {
+      const r = await fetch(a.dataset.dl, { headers: authHeaders() });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Download failed");
+      const url = URL.createObjectURL(await r.blob());
+      const tmp = Object.assign(document.createElement("a"), { href: url, download: a.dataset.name });
+      document.body.append(tmp); tmp.click(); tmp.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      a.firstChild.textContent = label;
+    } catch (err) {
+      a.firstChild.textContent = err.message.slice(0, 40);
+      setTimeout(() => { a.firstChild.textContent = label; }, 3000);
+    } finally {
+      delete a.dataset.busy;
+    }
+  });
 
   // ---- my videos: everything this account has generated ----
   async function loadMine() {

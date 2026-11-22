@@ -206,7 +206,15 @@ async function video(request, env, id, url) {
   const base = await backend(env);
   if (!base || !env.BACKEND_KEY) return json({ error: "The generator is offline right now." }, 503);
   const format = url.searchParams.get("format");
-  if (format && !FORMAT_NAMES[format]) return json({ error: "Unknown format." }, 400);
+  if (format) {
+    if (!Object.hasOwn(FORMAT_NAMES, format)) return json({ error: "Unknown format." }, 400);
+    // An export is a fresh encode on the generator, so only the account that made
+    // the video may ask for one. Plain playback of the original stays open by link.
+    const { user, error } = await requireUser(request, env);
+    if (error) return error;
+    const { jobs } = await quota(env, user.sub, "jobs");
+    if (!jobs.some((j) => j.id === id.slice(0, 36))) return json({ error: "That video isn't in your account." }, 403);
+  }
   const headers = { "x-backend-key": env.BACKEND_KEY };
   const range = request.headers.get("range");
   if (range) headers.range = range;

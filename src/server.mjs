@@ -157,19 +157,29 @@ export const FORMATS = {
   landscape: { label: "Landscape 16:9", args: `-filter_complex ${blurFill(1920, 1080)} ${V} -b:v 10M -b:a 192k` },
 };
 const exporting = new Map();
+// Exports are real encodes, so they queue: at most two at once, each with a time limit.
+const EXPORT_SLOTS = 2;
+let exportsRunning = 0;
+const exportWaiters = [];
 async function exportFormat(source, format) {
   await stat(source);
   const out = path.join(path.dirname(source), `${format}.mp4`);
   if (await stat(out).then(() => true, () => false)) return out;
-  // One encode per file at a time, however many people ask for it.
+  // One encode per file, however many requests ask for it.
   if (!exporting.has(out)) {
     const tmp = `${out}.part.mp4`;
-    exporting.set(
-      out,
-      run("ffmpeg", ["-v", "error", "-y", "-i", source, ...FORMATS[format].args.split(" "), tmp], { maxBuffer: 1 << 24 })
-        .then(() => rename(tmp, out))
-        .finally(() => exporting.delete(out)),
-    );
+    const job = (async () => {
+      if (exportsRunning >= EXPORT_SLOTS) await new Promise((r) => exportWaiters.push(r));
+      exportsRunning++;
+      try {
+        await run("ffmpeg", ["-v", "error", "-nostdin", "-y", "-i", source, ...FORMATS[format].args.split(" "), tmp], { maxBuffer: 1 << 24, timeout: 90000, killSignal: "SIGKILL" });
+        await rename(tmp, out);
+      } finally {
+        exportsRunning--;
+        exportWaiters.shift()?.();
+      }
+    })();
+    exporting.set(out, job.finally(() => exporting.delete(out)));
   }
   await exporting.get(out);
   return out;
@@ -328,7 +338,7 @@ const server = http.createServer(async (req, res) => {
     let file = path.join(JOBS, m[1], `v${m[2]}`, "video.mp4");
     const format = url.searchParams.get("format");
     if (format) {
-      if (!FORMATS[format]) return res.writeHead(400).end("unknown format");
+      if (!Object.hasOwn(FORMATS, format)) return res.writeHead(400).end("unknown format");
       try {
         file = await exportFormat(file, format);
       } catch {
