@@ -54,6 +54,40 @@ openclaw --profile cerb config set agents.list '[{"id":"main","default":true},{"
 
 `openclaw-skill/product-video/` is an agent skill for the full flow (send the agent a link, it scrapes, writes the brief and renders). Copy it into your OpenClaw workspace `skills/` folder and set `PRODUCT_SHORTS_ROOT` to this repository's path. It is experimental.
 
+## Styles and versions
+
+Three video styles share one brief format:
+
+- `depth` (default) – 3D showcase: rotating product carousel, tilting hero card, feature cards flipping in from depth, confetti finish.
+- `reel` – story reel: full-bleed product photos, caption-style kinetic type, split-screen strips, quick feature cuts.
+- `classic` – clean flat cards.
+
+```bash
+node src/make.mjs <url> --style reel
+node src/make.mjs <url1> <url2> <url3>      # several links run in parallel
+```
+
+The hosted generator asks Kimi for three briefs in one call (the feeling, the proof, the bold one) and returns one version per style.
+
+## Hosted generation
+
+The live site lets signed-in visitors generate their own videos.
+
+- **Cloudflare Worker (`site/worker.js`)** – the front door. Verifies Google sign-in (ID token, no client secret), enforces a per-account limit with an atomic Durable Object counter, and forwards requests.
+- **Generator (`src/server.mjs`)** – runs on a machine with Chrome and FFmpeg, reached through a Cloudflare Tunnel. It holds the Cerebras key, streams Kimi's output, returns browser-playable versions immediately and renders MP4s after.
+
+```bash
+# on the generator machine
+CEREBRAS_API_KEY=... BACKEND_KEY=<random 24+ chars> FETCH_VIA=curl node src/server.mjs
+cloudflared tunnel --url http://127.0.0.1:8787
+
+# on Cloudflare
+wrangler secret put BACKEND_KEY
+wrangler kv key put backend_url "<tunnel url>" --namespace-id <STATE id> --remote
+```
+
+Set `GOOGLE_CLIENT_ID` and `GEN_LIMIT` in `wrangler.jsonc`. The hosted path calls Cerebras directly; set `BRIEF_VIA=openclaw` on the generator to route briefs through OpenClaw instead (slower, text-only).
+
 ## Dashboard
 
 Live showcase: https://kimi-product-shorts.venkatg.workers.dev
@@ -74,13 +108,15 @@ wrangler deploy
 ## Status
 
 - Works: Shopify product links, vision-guided briefs, four visual themes, MP4 render, single-turn OpenClaw path.
-- Not yet: Amazon links (need a saved page), voiceover, music, the multi-step OpenClaw skill is unreliable.
+- Not yet: Amazon links (need a saved page), voiceover, music. The multi-step OpenClaw skill is unreliable.
 - Copy is model-written from the product page and is not fact-checked.
 
 ## Layout
 
 - `src/scrape.mjs` – product page to normalized product data
 - `src/brief.mjs` – product data to creative brief (Cerebras or OpenClaw)
-- `src/compose.mjs` – brief to HyperFrames composition
+- `src/compose.mjs`, `src/compose3d.mjs`, `src/compose-reel.mjs` – the three styles (`src/styles.mjs` picks one)
+- `src/core/` – parsing and prompt logic shared by the CLI and the generator
+- `src/server.mjs` – generator service for the hosted site
 - `src/make.mjs` – command-line entry point
 - `site/` – dashboard page, build script and the Worker that serves video range requests

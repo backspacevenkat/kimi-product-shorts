@@ -63,5 +63,5 @@ for (const slug of (await readdir(path.join(ROOT, "videos"))).sort()) {
 }
 
 await writeFile(path.join(DIST, "data.json"), JSON.stringify({ builtAt: new Date().toISOString(), items }));
-await copyFile(path.join(ROOT, "site", "index.html"), path.join(DIST, "index.html"));
+for (const page of ["index.html", "privacy.html"]) await copyFile(path.join(ROOT, "site", page), path.join(DIST, page));
 console.log(`site/dist ready: ${items.length} videos`);

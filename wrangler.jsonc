@@ -2,5 +2,18 @@
   "name": "kimi-product-shorts",
   "main": "site/worker.js",
   "compatibility_date": "2026-11-01",
-  "assets": { "directory": "./site/dist", "binding": "ASSETS", "run_worker_first": ["/media/*"] }
+  "assets": { "directory": "./site/dist", "binding": "ASSETS", "run_worker_first": ["/media/*", "/api/*"] },
+  // The generator's current tunnel address.
+  "kv_namespaces": [{ "binding": "STATE", "id": "28c3ff8b2fd64b7191a99b499a75d9ce" }],
+  // Atomic per-account video counter.
+  "durable_objects": { "bindings": [{ "name": "QUOTA", "class_name": "Quota" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Quota"] }],
+  // Burst guard per signed-in user, on top of the lifetime cap below.
+  "ratelimits": [{ "name": "LIMITER", "namespace_id": "4821", "simple": { "limit": 4, "period": 60 } }],
+  "vars": {
+    "GEN_LIMIT": "10",
+    // Public OAuth client ID for Google sign-in (not a secret).
+    "GOOGLE_CLIENT_ID": "796025047717-f7b7ae9m1im6qd61599trq1a9mlqqgnv.apps.googleusercontent.com"
+  }
+  // Secret (set with `wrangler secret put`): BACKEND_KEY
 }

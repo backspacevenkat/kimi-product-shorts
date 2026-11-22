@@ -4,28 +4,14 @@
 
 import { lookup as dnsLookup } from "node:dns";
 import { BlockList, isIP } from "node:net";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { Agent, fetch } from "undici";
+import { UA, scrapeHtml, shopifyHandle, shopifyProduct, currencyFromHtml } from "./core/parse.mjs";
 
-const UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+export { scrapeHtml };
 
-const strip = (html) =>
-  String(html ?? "")
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&#39;|&rsquo;|&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, " ")
-    .trim();
-
-const money = (v, currency = "USD") => {
-  const n = Number(String(v).replace(/[^0-9.]/g, ""));
-  if (!Number.isFinite(n) || n <= 0) return null;
-  const sym = { USD: "$", EUR: "€", GBP: "£", CAD: "$", AUD: "$", INR: "₹", SEK: "kr " }[currency] ?? "$";
-  return sym + (Number.isInteger(n) ? n : n.toFixed(2));
-};
+const execFileP = promisify(execFile);
 
 // Every fetch goes through here. URLs come from user input and from scraped pages,
 // so: http(s) only, no private/reserved targets, redirects re-checked hop by hop,
@@ -74,13 +60,41 @@ function guardedLookup(hostname, options, cb) {
     if (err) return cb(err);
     const bad = addrs.find((a) => isPrivate(a.address));
     if (bad || !addrs.length) return cb(new Error(`Blocked private or local address: ${hostname}`));
+    // IPv4 first: many networks advertise IPv6 they cannot route, which shows up as connect timeouts.
+    addrs.sort((a, b) => a.family - b.family);
     return options.all ? cb(null, addrs) : cb(null, addrs[0].address, addrs[0].family);
   });
 }
 
 // undici connects through guardedLookup, so the address that passed the check
 // is the one the socket uses.
-const dispatcher = new Agent({ connect: { lookup: guardedLookup }, headersTimeout: 20000, bodyTimeout: 30000 });
+const dispatcher = new Agent({ connect: { lookup: guardedLookup, autoSelectFamily: true, autoSelectFamilyAttemptTimeout: 400, timeout: 15000 }, headersTimeout: 20000, bodyTimeout: 30000 });
+
+
+// Alternative transport (FETCH_VIA=curl). Some store bot filters rate-limit Node's
+// TLS client but serve curl. The guard is unchanged: the hostname is resolved and
+// checked here, and curl is pinned to that exact address with --resolve.
+const VIA_CURL = process.env.FETCH_VIA === "curl";
+const resolvePublic = (hostname) =>
+  new Promise((resolve, reject) => guardedLookup(hostname, { all: true }, (err, addrs) => (err ? reject(err) : resolve(addrs[0]))));
+
+async function curlOnce(u, accept) {
+  const host = u.hostname.replace(/^\[|\]$/g, "");
+  const addr = isIP(host) ? { address: host, family: isIP(host) } : await resolvePublic(host);
+  const pin = `${u.hostname}:${u.port || (u.protocol === "https:" ? 443 : 80)}:${addr.family === 6 ? `[${addr.address}]` : addr.address}`;
+  const { stdout } = await execFileP(
+    "curl",
+    ["-sS", "--proto", "=http,https", "--max-redirs", "0", "--max-time", "25", "--max-filesize", String(MAX_BYTES), "--resolve", pin, "--compressed",
+      "-A", UA, "-H", `accept: ${accept}`, "-H", "accept-language: en-US,en;q=0.9", "-D", "-", "-o", "-", "--", u.href],
+    { encoding: "buffer", maxBuffer: MAX_BYTES + (1 << 16) },
+  );
+  // Headers end at the first blank line (no redirects are followed, so one block).
+  const cut = stdout.indexOf("\r\n\r\n");
+  const head = stdout.subarray(0, cut).toString("latin1").split("\r\n");
+  const status = Number(head[0].split(" ")[1]);
+  const headers = new Map(head.slice(1).map((l) => [l.slice(0, l.indexOf(":")).toLowerCase(), l.slice(l.indexOf(":") + 1).trim()]));
+  return { status, headers: { get: (n) => headers.get(n.toLowerCase()) ?? null }, buffer: stdout.subarray(cut + 4) };
+}
 
 async function readCapped(res) {
   const chunks = [];
@@ -95,6 +109,7 @@ async function readCapped(res) {
 
 async function get(url, accept = "text/html") {
   let current = url;
+  let retries = 0;
   for (let hop = 0; hop < 6; hop++) {
     const u = new URL(current);
     if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error(`Blocked non-http URL: ${u.protocol}`);
@@ -104,7 +119,7 @@ async function get(url, accept = "text/html") {
     if (isIP(host) && isPrivate(host)) throw new Error(`Blocked private or local address: ${u.hostname}`);
     let res;
     try {
-      res = await fetch(u, { dispatcher, redirect: "manual", headers: { "user-agent": UA, accept, "accept-language": "en-US,en;q=0.9" } });
+      res = VIA_CURL ? await curlOnce(u, accept) : await fetch(u, { dispatcher, redirect: "manual", headers: { "user-agent": UA, accept, "accept-language": "en-US,en;q=0.9" } });
     } catch (e) {
       throw new Error(e?.cause?.message ?? e.message);
     }
@@ -114,134 +129,41 @@ async function get(url, accept = "text/html") {
       current = new URL(loc, u).href;
       continue;
     }
-    if (!res.ok) throw new Error(`${res.status} fetching ${url}`);
+    // Stores rate-limit by IP. Back off briefly and try again before giving up.
+    if (res.status === 429 && retries < 3) {
+      await res.body?.cancel();
+      await new Promise((r) => setTimeout(r, [1200, 3000, 6000][retries++]));
+      hop--;
+      continue;
+    }
+    if (res.status === 429) throw new Error("That store is rate-limiting requests right now. Try again in a minute.");
+    if (res.status < 200 || res.status >= 300) throw new Error(`${res.status} fetching ${url}`);
     if (Number(res.headers.get("content-length") ?? 0) > MAX_BYTES) throw new Error(`Response too large: ${url}`);
-    const buffer = await readCapped(res);
+    const buffer = res.buffer ?? (await readCapped(res));
     return { ok: true, status: res.status, headers: res.headers, buffer, text: async () => buffer.toString("utf8"), json: async () => JSON.parse(buffer.toString("utf8")) };
   }
   throw new Error(`Too many redirects: ${url}`);
 }
 
+// The product JSON and the storefront page (for currency) are fetched together.
 async function shopify(url) {
+  const handle = shopifyHandle(url);
+  if (!handle) return null;
   const u = new URL(url);
-  const m = u.pathname.match(/\/products\/([^/?#]+)/);
-  if (!m) return null;
-  let data;
-  try {
-    data = await (await get(`${u.origin}/products/${m[1]}.json`, "application/json")).json();
-  } catch {
-    return null;
-  }
-  const p = data?.product;
-  if (!p) return null;
-  const v = p.variants?.[0] ?? {};
-  // .json has no currency; storefront meta does.
-  let currency = "USD";
-  try {
-    const html = await (await get(url)).text();
-    currency = html.match(/"currency"\s*:\s*"([A-Z]{3})"/)?.[1] ?? html.match(/Shopify\.currency\s*=\s*\{"active":"([A-Z]{3})"/)?.[1] ?? "USD";
-  } catch {}
-  const price = money(v.price, currency);
-  const compareAt = v.compare_at_price && Number(v.compare_at_price) > Number(v.price) ? money(v.compare_at_price, currency) : null;
-  return {
-    source: "shopify",
-    url,
-    domain: u.hostname.replace(/^www\./, ""),
-    brand: p.vendor || u.hostname.replace(/^www\./, "").split(".")[0],
-    title: p.title,
-    price,
-    compareAt,
-    description: strip(p.body_html).slice(0, 1500),
-    bullets: [],
-    tags: Array.isArray(p.tags) ? p.tags.slice(0, 12) : String(p.tags || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 12),
-    images: (p.images ?? []).map((i) => i.src).slice(0, 8),
-  };
-}
-
-function fromJsonLd(html) {
-  const blocks = [...html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]);
-  for (const raw of blocks) {
-    let j;
-    try {
-      j = JSON.parse(raw.trim());
-    } catch {
-      continue;
-    }
-    const nodes = [].concat(j?.["@graph"] ?? j);
-    const p = nodes.find((n) => [].concat(n?.["@type"] ?? []).includes("Product"));
-    if (p) return p;
-  }
-  return null;
-}
-
-const meta = (html, name) =>
-  html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']+)["']`, "i"))?.[1] ??
-  html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${name}["']`, "i"))?.[1];
-
-function amazon(html, url) {
-  const title = strip(html.match(/id="productTitle"[^>]*>([\s\S]*?)<\/span>/)?.[1] ?? "");
-  if (!title) return null;
-  const images = [...new Set([...html.matchAll(/"hiRes":"(https:[^"]+)"/g)].map((m) => m[1]))];
-  if (!images.length) {
-    const land = html.match(/id="landingImage"[^>]+data-old-hires="([^"]+)"/)?.[1] ?? html.match(/id="landingImage"[^>]+src="([^"]+)"/)?.[1];
-    if (land) images.push(land);
-  }
-  const bulletBlock = html.match(/id="feature-bullets"[\s\S]*?<\/ul>/)?.[0] ?? "";
-  const bullets = [...bulletBlock.matchAll(/<span class="a-list-item[^"]*">([\s\S]*?)<\/span>/g)].map((m) => strip(m[1])).filter((s) => s.length > 8).slice(0, 6);
-  const priceRaw = html.match(/class="a-price[^"]*"[^>]*>\s*<span class="a-offscreen">([^<]+)</)?.[1];
-  const listRaw = html.match(/class="a-price a-text-price"[^>]*>\s*<span class="a-offscreen">([^<]+)</)?.[1];
-  const brandRaw = strip(html.match(/id="bylineInfo"[^>]*>([\s\S]*?)<\/a>/)?.[1] ?? "");
-  const brand = brandRaw.replace(/^(Visit the|Brand:)\s*/i, "").replace(/\s*Store$/i, "").trim();
-  const price = priceRaw?.trim() || null;
-  const compareAt = listRaw && listRaw.trim() !== price ? listRaw.trim() : null;
-  return {
-    source: "amazon",
-    url,
-    domain: new URL(url).hostname.replace(/^www\./, ""),
-    brand: brand || "Amazon",
-    title,
-    price,
-    compareAt,
-    description: bullets.join(" "),
-    bullets,
-    tags: [],
-    images: images.slice(0, 8),
-  };
-}
-
-export function scrapeHtml(html, url) {
-  const u = new URL(url);
-  if (/amazon\./.test(u.hostname)) {
-    const a = amazon(html, url);
-    if (a) return a;
-  }
-  const p = fromJsonLd(html);
-  const offer = [].concat(p?.offers ?? [])[0] ?? {};
-  const images = [].concat(p?.image ?? []).map((i) => (typeof i === "string" ? i : i?.url)).filter(Boolean);
-  const og = meta(html, "og:image");
-  if (og && !images.includes(og)) images.push(og);
-  const title = p?.name ?? meta(html, "og:title") ?? strip(html.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? "");
-  if (!title || !images.length) throw new Error(`No product data found at ${url}`);
-  return {
-    source: "generic",
-    url,
-    domain: u.hostname.replace(/^www\./, ""),
-    brand: (typeof p?.brand === "string" ? p.brand : p?.brand?.name) ?? meta(html, "og:site_name") ?? u.hostname.replace(/^www\./, "").split(".")[0],
-    title: strip(title),
-    price: money(offer.price ?? offer.lowPrice ?? meta(html, "product:price:amount"), offer.priceCurrency ?? meta(html, "product:price:currency") ?? "USD"),
-    compareAt: null,
-    description: strip(p?.description ?? meta(html, "og:description") ?? "").slice(0, 1500),
-    bullets: [],
-    tags: [],
-    images: images.map((i) => new URL(i, url).href).slice(0, 8),
-  };
+  const [json, html] = await Promise.all([
+    get(`${u.origin}/products/${handle}.json`, "application/json").then((r) => r.json()).catch(() => null),
+    get(url).then((r) => r.text()).catch(() => ""),
+  ]);
+  if (!json) return html ? { html } : null;
+  return shopifyProduct(json, url, currencyFromHtml(html));
 }
 
 export async function scrape(url, html) {
   if (html) return scrapeHtml(html, url);
   const s = await shopify(url);
-  if (s && s.images.length) return s;
-  return scrapeHtml(await (await get(url)).text(), url);
+  if (s?.images?.length) return s;
+  // Not Shopify (or no JSON): reuse the page we already fetched if we have it.
+  return scrapeHtml(s?.html ?? (await (await get(url)).text()), url);
 }
 
 export async function download(src, dest) {

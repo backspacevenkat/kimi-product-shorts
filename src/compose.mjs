@@ -26,7 +26,33 @@ const THEME = {
   neon: { display: "Unbounded", weight: 800, body: "Inter", upper: true, radius: 44, track: "-0.03em", fonts: "Unbounded:wght@800&family=Inter:wght@500;700" },
 };
 
-export function compose(product, brief, images) {
+// In-browser playback for the hosted site: no HyperFrames runtime there, so this
+// drives clip visibility from data-start/data-duration, scales the stage to the
+// frame it is shown in, and loops.
+const WEB_STYLE = `html, body { width:100%; height:100%; background:#000; } #root { position:absolute; left:0; top:0; transform-origin:0 0; }`;
+const WEB_PLAYER = `
+  (function () {
+    const root = document.getElementById("root");
+    const clips = [...root.querySelectorAll("[data-start]")];
+    const show = (t) => clips.forEach((el) => {
+      const s = +el.dataset.start, d = +el.dataset.duration;
+      el.style.visibility = t >= s && t < s + d ? "visible" : "hidden";
+    });
+    const fit = () => {
+      const k = Math.min(innerWidth / ${W}, innerHeight / ${H});
+      root.style.transform = "translate(" + (innerWidth - ${W} * k) / 2 + "px," + (innerHeight - ${H} * k) / 2 + "px) scale(" + k + ")";
+    };
+    addEventListener("resize", fit);
+    fit();
+    tl.set({}, {}, ${DURATION});
+    tl.eventCallback("onUpdate", () => show(tl.time()));
+    tl.eventCallback("onComplete", () => setTimeout(() => tl.restart(), 800));
+    show(0);
+    const start = () => tl.play(0);
+    (document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]) : Promise.resolve()).then(start);
+  })();`;
+
+export function compose(product, brief, images, { web = false } = {}) {
   const t = THEME[brief.theme] ?? THEME.noir;
   let { bg, accent } = brief.palette;
   if (contrast(bg, accent) < 1.6) accent = lum(bg) > 0.4 ? "#111114" : "#ffd23f";
@@ -39,7 +65,9 @@ export function compose(product, brief, images) {
 
   const hookWords = up(brief.hook).split(" ").filter(Boolean);
   const hookSize = fit(hookWords.reduce((a, b) => (a.length >= b.length ? a : b), ""), 960, t.display === "Unbounded" ? 230 : 330, t.display === "Unbounded" ? 0.74 : 0.6);
-  const nameSize = Math.min(132, Math.max(72, fit(up(brief.name), 1800, 132, t.display === "Unbounded" ? 0.7 : 0.55)));
+  const wide = t.display === "Unbounded" ? 0.86 : 0.64;
+  const longest = (text) => String(text).split(/\s+/).reduce((a, b) => (a.length >= b.length ? a : b), "");
+  const nameSize = Math.min(132, fit(longest(up(brief.name)), 940, 132, wide), Math.max(72, fit(up(brief.name), 1800, 132, t.display === "Unbounded" ? 0.7 : 0.55)));
   const glow = brief.theme === "neon" ? `text-shadow:0 0 42px ${accent}aa;` : "";
   const italic = brief.theme === "editorial" ? "font-style:italic;" : "";
 
@@ -87,6 +115,7 @@ export function compose(product, brief, images) {
   .card img, .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
   .wipe { position:absolute; left:0; top:0; width:${W}px; height:${H}px; z-index:50; }
   .blob { position:absolute; border-radius:50%; filter:blur(120px); opacity:.5; }
+  ${web ? WEB_STYLE : ""}
 
   /* A: hook */
   #sA { background:var(--accent); color:var(--on-accent); }
@@ -208,7 +237,7 @@ export function compose(product, brief, images) {
 
   window.__timelines = window.__timelines || {};
   window.__timelines["main"] = tl;
-  tl.seek(0);
+  tl.seek(0);${web ? WEB_PLAYER : ""}
 </script>
 </body>
 </html>

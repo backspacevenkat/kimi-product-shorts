@@ -9,3 +9,6 @@ openclaw-workspace/
 site/dist/
 .wrangler/
 .claude/
+.dev.vars
+jobs/
+.preview/

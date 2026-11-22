@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy – Kimi Product Shorts</title>
+<style>
+  :root { --bg:#f6f4ef; --ink:#15151a; --soft:#62626d; --accent:#ff5a1f; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0d0d11; --ink:#f3f2ee; --soft:#a1a1ad; --accent:#ff6a33; } }
+  body { margin:0; background:var(--bg); color:var(--ink); font:17px/1.6 Inter, system-ui, sans-serif; }
+  main { max-width:68ch; margin:0 auto; padding:48px 20px 80px; }
+  h1 { font-size:34px; line-height:1.15; margin:0 0 6px; }
+  h2 { font-size:20px; margin:32px 0 6px; }
+  p, li { color:var(--soft); }
+  a { color:var(--accent); }
+  .date { color:var(--soft); font-size:14px; }
+</style>
+</head>
+<body>
+<main>
+  <p><a href="/">← Kimi Product Shorts</a></p>
+  <h1>Privacy</h1>
+  <p class="date">Last updated 21 November 2026</p>
+  <p>Kimi Product Shorts is a hackathon demo that turns a product link into a short video. This page says what it handles when you use the live generator.</p>
+
+  <h2>What we receive when you sign in</h2>
+  <p>Sign-in uses Google. We ask Google only for your basic identity: your Google account ID and email address. We do not get access to your Gmail, contacts, files or anything else in your account.</p>
+
+  <h2>What we keep</h2>
+  <ul>
+    <li><b>A counter per Google account ID</b>, so each account can make a limited number of videos. It stores the account ID and a number. Your email address is shown back to you on the page but is not stored with the counter.</li>
+    <li><b>The videos you generate</b>, with the product page data and photos they were made from, on the machine that renders them. They are reachable only through the unguessable link shown to you.</li>
+  </ul>
+  <p>Your sign-in token is held in your browser for the current tab session and is cleared when you sign out or close the tab.</p>
+
+  <h2>Who else sees data</h2>
+  <ul>
+    <li><b>Cerebras</b> runs the Kimi K3.1 Pro model. It receives the product page text and product photos for the link you submit. It does not receive your name, email or account ID.</li>
+    <li><b>Cloudflare</b> hosts this site and the counter.</li>
+    <li><b>The store whose link you submit</b> is contacted to read its public product page.</li>
+  </ul>
+  <p>We do not sell data, show ads or use tracking cookies.</p>
+
+  <h2>Removal and questions</h2>
+  <p>To have your counter or a generated video removed, or to ask anything else, open an issue at <a href="https://github.com/backspacevenkat/kimi-product-shorts/issues">github.com/backspacevenkat/kimi-product-shorts</a>.</p>
+</main>
+</body>
+</html>
