@@ -55,6 +55,7 @@ Three things, all measured during the hackathon:
 
 - `next` is a custom MCP tool. The five-shop list is in the tool's configuration, not in the prompt. No products, links or results are preset or cached: every result comes from the shop's live search at call time.
 - The five gifts are the top in-stock result from each shop, so the agent does not compare alternatives.
+- After the run was recorded, the published copy of the tool was hardened: it now only searches shops on its list and refuses redirects that leave the shop's own domain. The `next` tool's behaviour and output are unchanged.
 - This is the best of roughly 150 completed runs with this setup. Typical runs score 1,000 to 1,400.
 - The agent's default workspace notes were shortened to a few lines, and bundled skills, heartbeat and context injection are off (see the config).
 

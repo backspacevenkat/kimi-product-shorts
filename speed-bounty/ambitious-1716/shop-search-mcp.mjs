@@ -7,23 +7,36 @@ import readline from "node:readline";
 
 const clean = (s) => String(s || "").replace(/&amp;/g, "&").replace(/[\u2018\u2019]/g, "'").replace(/[\u2013\u2014]/g, "-").replace(/[^\x20-\x7e]/g, " ").replace(/["\\]/g, " ").replace(/\s+/g, " ").trim();
 
+const LIST = (process.env.SHOPS || "fellowproducts.com,www.deathwishcoffee.com,ugmonk.com,www.nomadgoods.com,www.tentree.com,www.allbirds.com,magicspoon.com,drinkolipop.com,www.kyliecosmetics.com,www.brooklinen.com,flybyjing.com,brightland.co,corkcicle.com,www.diasporaco.com,goosecreek.com,www.lodgecastiron.com,kikkerland.com,www.naturallife.com,ledergames.com,www.portlandleathergoods.com").split(",");
+const bare = (h) => String(h || "").toLowerCase().replace(/^www\./, "");
+// Only shops on the list may be searched, and redirects may not leave the shop's own domain.
+async function getJson(url, host) {
+  for (let hop = 0; hop < 4; hop++) {
+    const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0", accept: "application/json" }, redirect: "manual", signal: AbortSignal.timeout(8000) });
+    if (r.status >= 300 && r.status < 400) {
+      const next = new URL(r.headers.get("location") || "", url);
+      if (next.protocol !== "https:" || bare(next.hostname) !== bare(host)) throw new Error("redirect off-site");
+      url = next.toString(); continue;
+    }
+    if (!r.ok) throw new Error(`http ${r.status}`);
+    return r.json();
+  }
+  throw new Error("too many redirects");
+}
 async function searchShop(shop, query) {
-  const host = String(shop || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(host)) return { shop: host, error: "bad shop" };
+  const host = String(shop || "").toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  if (!LIST.some((s) => bare(s) === bare(host))) return { shop: host, error: "shop not on the list" };
   const u = `https://${host}/search/suggest.json?q=${encodeURIComponent(query || "gift")}&resources[type]=product&resources[limit]=4`;
   try {
-    const r = await fetch(u, { headers: { "user-agent": "Mozilla/5.0", accept: "application/json" }, signal: AbortSignal.timeout(8000) });
-    if (!r.ok) return { shop: host, error: `http ${r.status}` };
-    const list = (await r.json())?.resources?.results?.products || [];
+    const list = (await getJson(u, host))?.resources?.results?.products || [];
     const p = list.find((x) => x.available && !/gift\s*card|e-?gift/i.test(`${x.title} ${x.type} ${x.handle}`));
     if (!p) return { shop: host, error: "no physical product" };
     return { name: clean(p.title), price: Number(p.price).toFixed(2), url: `https://${host}${String(p.url).split("?")[0]}` };
-  } catch (e) { return { shop: host, error: String(e.name || e) }; }
+  } catch (e) { return { shop: host, error: String(e.message || e.name || e) }; }
 }
 
 // Cursor tool: each call searches the next shop in the list live. The cursor
 // restarts after the last shop, or after 8 idle seconds (a new session).
-const LIST = (process.env.SHOPS || "fellowproducts.com,www.deathwishcoffee.com,ugmonk.com,www.nomadgoods.com,www.tentree.com,www.allbirds.com,magicspoon.com,drinkolipop.com,www.kyliecosmetics.com,www.brooklinen.com,flybyjing.com,brightland.co,corkcicle.com,www.diasporaco.com,goosecreek.com,www.lodgecastiron.com,kikkerland.com,www.naturallife.com,ledergames.com,www.portlandleathergoods.com").split(",");
 let cursor = 0, last = 0;
 async function nextShop() {
   if (Date.now() - last > 8000 || cursor >= LIST.length) cursor = 0;
