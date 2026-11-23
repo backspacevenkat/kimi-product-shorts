@@ -1,0 +1,131 @@
+{
+ "sessionId": "5c18eac1-d9eb-48e0-8a0e-8d662100d824",
+ "model": "moonshotai-kimi-k3.1-pro-trial",
+ "meanTokPerSec": 1105.14,
+ "modelCalls": 11,
+ "calls": [
+  {
+   "timestamp": "2026-11-22T10:57:17.924Z",
+   "cerebrasResponseId": "chatcmpl-05da14f0-6076-48b5-85b8-621ad1d42d33",
+   "outputTokens": 88,
+   "completionMs": 147.885503,
+   "tokPerSec": 595.05,
+   "reasoningTokens": 19,
+   "promptTokens": 2812,
+   "stopReason": "toolUse",
+   "toolCall": "web_fetch {\"url\": \"https://fellowproducts.com/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1\"}"
+  },
+  {
+   "timestamp": "2026-11-22T10:57:18.740Z",
+   "cerebrasResponseId": "chatcmpl-d6f68881-ef46-4ed2-bb01-08f3d7d89769",
+   "outputTokens": 82,
+   "completionMs": 51.437922,
+   "tokPerSec": 1594.15,
+   "reasoningTokens": 11,
+   "promptTokens": 3810,
+   "stopReason": "toolUse",
+   "toolCall": "web_fetch {\"url\": \"https://www.deathwishcoffee.com/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1\"}"
+  },
+  {
+   "timestamp": "2026-11-22T10:57:19.745Z",
+   "cerebrasResponseId": "chatcmpl-53e5d09d-1009-4171-bd3e-5b0c9476b06f",
+   "outputTokens": 72,
+   "completionMs": 105.27458100000001,
+   "tokPerSec": 683.93,
+   "reasoningTokens": 3,
+   "promptTokens": 4964,
+   "stopReason": "toolUse",
+   "toolCall": "web_fetch {\"url\": \"https://ugmonk.com/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1\"}"
+  },
+  {
+   "timestamp": "2026-11-22T10:57:21.262Z",
+   "cerebrasResponseId": "chatcmpl-8763d2a7-0a23-4b9e-927f-286e51700853",
+   "outputTokens": 87,
+   "completionMs": 76.214882,
+   "tokPerSec": 1141.51,
+   "reasoningTokens": 17,
+   "promptTokens": 5929,
+   "stopReason": "toolUse",
+   "toolCall": "web_fetch {\"url\": \"https://www.nomadgoods.com/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1\"}"
+  },
+  {
+   "timestamp": "2026-11-22T10:57:22.369Z",
+   "cerebrasResponseId": "chatcmpl-161de3b7-c7eb-4726-b2e3-7d58cb84c4bf",
+   "outputTokens": 73,
+   "completionMs": 48.23086,
+   "tokPerSec": 1513.55,
+   "reasoningTokens": 3,
+   "promptTokens": 6847,
+   "stopReason": "toolUse",
+   "toolCall": "web_fetch {\"url\": \"https://www.tentree.com/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1\"}"
+  },
+  {
+   "timestamp": "2026-11-22T10:57:23.014Z",
+   "cerebrasResponseId": "chatcmpl-15ec4643-1ba5-4e70-bb67-78b5a8d9d11d",
+   "outputTokens": 72,
+   "completionMs": 51.390567,
+   "tokPerSec": 1401.04,
+   "reasoningTokens": 3,
+   "promptTokens": 7759,
+   "stopReason": "toolUse",
+   "toolCall": "web_fetch {\"url\": \"https://www.allbirds.com/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1\"}"
+  },
+  {
+   "timestamp": "2026-11-22T10:57:23.677Z",
+   "cerebrasResponseId": "chatcmpl-393c6c4a-2af0-41ac-b86e-49c08a32ba42",
+   "outputTokens": 72,
+   "completionMs": 40.918279,
+   "tokPerSec": 1759.6,
+   "reasoningTokens": 3,
+   "promptTokens": 8729,
+   "stopReason": "toolUse",
+   "toolCall": "web_fetch {\"url\": \"https://magicspoon.com/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1\"}"
+  },
+  {
+   "timestamp": "2026-11-22T10:57:24.430Z",
+   "cerebrasResponseId": "chatcmpl-0018c944-992b-4338-a542-1a7d4f4db46a",
+   "outputTokens": 79,
+   "completionMs": 69.734572,
+   "tokPerSec": 1132.87,
+   "reasoningTokens": 8,
+   "promptTokens": 9667,
+   "stopReason": "toolUse",
+   "toolCall": "web_fetch {\"url\": \"https://drinkolipop.com/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1\"}"
+  },
+  {
+   "timestamp": "2026-11-22T10:57:25.654Z",
+   "cerebrasResponseId": "chatcmpl-5b3ab998-638f-49d1-8f98-b867793bbfa0",
+   "outputTokens": 86,
+   "completionMs": 111.622695,
+   "tokPerSec": 770.45,
+   "reasoningTokens": 15,
+   "promptTokens": 10468,
+   "stopReason": "toolUse",
+   "toolCall": "web_fetch {\"url\": \"https://www.kyliecosmetics.com/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1\"}"
+  },
+  {
+   "timestamp": "2026-11-22T10:57:27.080Z",
+   "cerebrasResponseId": "chatcmpl-f8de99c1-0471-4759-a038-0402446d6a0a",
+   "outputTokens": 96,
+   "completionMs": 93.996059,
+   "tokPerSec": 1021.32,
+   "reasoningTokens": 25,
+   "promptTokens": 11416,
+   "stopReason": "toolUse",
+   "toolCall": "web_fetch {\"url\": \"https://www.brooklinen.com/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1\"}"
+  },
+  {
+   "timestamp": "2026-11-22T10:57:29.788Z",
+   "cerebrasResponseId": "chatcmpl-83234e57-48c4-47bf-b95e-ec833158e847",
+   "outputTokens": 260,
+   "completionMs": 478.769106,
+   "tokPerSec": 543.06,
+   "reasoningTokens": 94,
+   "promptTokens": 12267,
+   "stopReason": "stop",
+   "toolCall": null
+  }
+ ],
+ "finalAnswer": "Shimmy Coffee Sieve — $33.95 — https://fellowproducts.com/products/shimmy-coffee-sieve\nTriple Threat Coffee Bundle — $54.99 — https://www.deathwishcoffee.com/products/triple-threat-coffee-bundle\nCard Wallet Plus - Black | Horween — $87.00 — https://www.nomadgoods.com/products/card-wallet-plus-black\nTreats Combo Pack - 16 Cereal Treats (4 Boxes) — $39.00 — https://magicspoon.com/products/chocolatey-pb-and-marshmallow-16-cereal-treats\nMood Stones Starter Gift Set — $80.00 — https://www.kyliecosmetics.com/products/mood-stones-starter-gift-set",
+ "toolResults": []
+}

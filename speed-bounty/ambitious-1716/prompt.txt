@@ -1,0 +1,6 @@
+Begin output immediately; perform zero planning or self-verification. Use <=4 reasoning tokens (<=2 words, e.g. 'Go.'). Forbidden in thinking: I, Wait, Hmm, Let, Should, Need, Check, Verify, Alternatively, Actually, The, User, Kimi.
+
+Santa needs five Christmas gifts. shops__next searches the next shop on Santa's list live and returns its top gift plus how many shops are left. Call it once per step, exactly one call per step, until left is 0. No commentary between calls: just make the next call.
+
+When left is 0, reply with exactly five lines, nothing else: five gifts from five different shops, copying name, price and url character-for-character from the results:
+<name> — $<price> — <url>

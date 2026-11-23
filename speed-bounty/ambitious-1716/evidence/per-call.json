@@ -1,0 +1,97 @@
+{
+ "sessionId": "2331add6-c65e-4bfa-ab74-a9280e2f01c8",
+ "model": "moonshotai-kimi-k3.1-pro-trial",
+ "meanTokPerSec": 1716.44,
+ "modelCalls": 6,
+ "calls": [
+  {
+   "timestamp": "2026-11-22T22:01:30.560Z",
+   "cerebrasResponseId": "chatcmpl-58d966a9-533b-4f8c-927c-b7dd5ee7179f",
+   "outputTokens": 37,
+   "completionMs": 24.18346,
+   "tokPerSec": 1529.97,
+   "reasoningTokens": 5,
+   "promptTokens": 3362,
+   "stopReason": "toolUse",
+   "toolCall": "shops__next {}"
+  },
+  {
+   "timestamp": "2026-11-22T22:01:31.054Z",
+   "cerebrasResponseId": "chatcmpl-29da977f-6c41-4f87-9d3d-a55d35be0747",
+   "outputTokens": 35,
+   "completionMs": 23.327015,
+   "tokPerSec": 1500.41,
+   "reasoningTokens": 3,
+   "promptTokens": 3465,
+   "stopReason": "toolUse",
+   "toolCall": "shops__next {}"
+  },
+  {
+   "timestamp": "2026-11-22T22:01:31.754Z",
+   "cerebrasResponseId": "chatcmpl-c70b2660-ed30-463f-a1d9-28619e5c406f",
+   "outputTokens": 35,
+   "completionMs": 16.634425,
+   "tokPerSec": 2104.07,
+   "reasoningTokens": 3,
+   "promptTokens": 3567,
+   "stopReason": "toolUse",
+   "toolCall": "shops__next {}"
+  },
+  {
+   "timestamp": "2026-11-22T22:01:32.301Z",
+   "cerebrasResponseId": "chatcmpl-cb3bf1cc-cd2f-4061-b309-dd34281ff65f",
+   "outputTokens": 35,
+   "completionMs": 16.987391000000002,
+   "tokPerSec": 2060.35,
+   "reasoningTokens": 3,
+   "promptTokens": 3670,
+   "stopReason": "toolUse",
+   "toolCall": "shops__next {}"
+  },
+  {
+   "timestamp": "2026-11-22T22:01:32.814Z",
+   "cerebrasResponseId": "chatcmpl-25cb3fdd-a2b4-4ca2-936c-42ce52afd884",
+   "outputTokens": 35,
+   "completionMs": 16.637090999999998,
+   "tokPerSec": 2103.73,
+   "reasoningTokens": 3,
+   "promptTokens": 3791,
+   "stopReason": "toolUse",
+   "toolCall": "shops__next {}"
+  },
+  {
+   "timestamp": "2026-11-22T22:01:34.063Z",
+   "cerebrasResponseId": "chatcmpl-9cbd37f8-d0c6-406e-945a-93ed564fde20",
+   "outputTokens": 183,
+   "completionMs": 182.97709,
+   "tokPerSec": 1000.13,
+   "reasoningTokens": 17,
+   "promptTokens": 3898,
+   "stopReason": "stop",
+   "toolCall": null
+  }
+ ],
+ "finalAnswer": "Shimmy Coffee Sieve — $33.95 — https://fellowproducts.com/products/shimmy-coffee-sieve\nTriple Threat Coffee Bundle — $54.99 — https://www.deathwishcoffee.com/products/triple-threat-coffee-bundle\nCard Wallet Plus - Black | Horween — $76.00 — https://www.nomadgoods.com/products/card-wallet-plus-black\nTreats Combo Pack - 16 Cereal Treats (4 Boxes) — $39.00 — https://magicspoon.com/products/chocolatey-pb-and-marshmallow-16-cereal-treats\nMood Stones Starter Gift Set — $80.00 — https://www.kyliecosmetics.com/products/mood-stones-starter-gift-set",
+ "toolResults": [
+  {
+   "tool": "shops__next",
+   "result": "{\"name\":\"Shimmy Coffee Sieve\",\"price\":\"33.95\",\"url\":\"https://fellowproducts.com/products/shimmy-coffee-sieve\",\"left\":4}"
+  },
+  {
+   "tool": "shops__next",
+   "result": "{\"name\":\"Triple Threat Coffee Bundle\",\"price\":\"54.99\",\"url\":\"https://www.deathwishcoffee.com/products/triple-threat-coffee-bundle\",\"left\":3}"
+  },
+  {
+   "tool": "shops__next",
+   "result": "{\"name\":\"Card Wallet Plus - Black | Horween\",\"price\":\"76.00\",\"url\":\"https://www.nomadgoods.com/products/card-wallet-plus-black\",\"left\":2}"
+  },
+  {
+   "tool": "shops__next",
+   "result": "{\"name\":\"Treats Combo Pack - 16 Cereal Treats (4 Boxes)\",\"price\":\"39.00\",\"url\":\"https://magicspoon.com/products/chocolatey-pb-and-marshmallow-16-cereal-treats\",\"left\":1}"
+  },
+  {
+   "tool": "shops__next",
+   "result": "{\"name\":\"Mood Stones Starter Gift Set\",\"price\":\"80.00\",\"url\":\"https://www.kyliecosmetics.com/products/mood-stones-starter-gift-set\",\"left\":0}"
+  }
+ ]
+}

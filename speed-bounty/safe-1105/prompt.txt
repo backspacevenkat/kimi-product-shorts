@@ -1,0 +1,9 @@
+Santa needs five Christmas gifts. Search these ten shops live for "gift", each with its own search endpoint:
+https://<shop>/search/suggest.json?q=gift&resources[type]=product&resources[limit]=1
+
+Shops: fellowproducts.com, www.deathwishcoffee.com, ugmonk.com, www.nomadgoods.com, www.tentree.com, www.allbirds.com, magicspoon.com, drinkolipop.com, www.kyliecosmetics.com, www.brooklinen.com
+
+Rules: one web_fetch call per step, one shop per call, in the order given. No commentary and no planning between calls: just make the next call.
+
+After the tenth fetch, choose the five best gifts from five different shops (physical products, no gift cards) and reply with exactly five lines, nothing else:
+<gift name> — $<price> — https://<shop><product url without the query string>

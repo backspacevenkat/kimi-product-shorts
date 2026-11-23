@@ -1,0 +1,100 @@
+{
+  "models": {
+    "providers": {
+      "cerebras": {
+        "baseUrl": "https://api.cerebras.ai/v1",
+        "api": "openai-completions",
+        "apiKey": "${CEREBRAS_API_KEY}",
+        "models": [
+          {
+            "id": "moonshotai-kimi-k3.1-pro-trial",
+            "name": "Kimi K3.1 Pro (Cerebras)",
+            "reasoning": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "compat": {
+              "supportsTools": true,
+              "supportsStrictMode": false,
+              "supportsReasoningEffort": true,
+              "supportedReasoningEfforts": [
+                "low",
+                "high",
+                "max"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "anthropic": {
+        "config": {
+          "sessionCatalog": {
+            "enabled": false
+          }
+        }
+      },
+      "codex": {
+        "config": {
+          "sessionCatalog": {
+            "enabled": false
+          }
+        }
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "cerebras/moonshotai-kimi-k3.1-pro-trial"
+      },
+      "thinkingDefault": "low",
+      "workspace": "/path/to/speed-bounty/workspace",
+      "skills": [],
+      "heartbeat": {
+        "every": "0m"
+      },
+      "contextInjection": "never",
+      "skipBootstrap": true,
+      "experimental": {
+        "localModelLean": true
+      }
+    }
+  },
+  "tools": {
+    "profile": "minimal",
+    "toolSearch": false,
+    "alsoAllow": [
+      "shops__*"
+    ]
+  },
+  "skills": {
+    "allowBundled": []
+  },
+  "mcp": {
+    "servers": {
+      "shops": {
+        "command": "/opt/homebrew/opt/node@24/bin/node",
+        "args": [
+          "/path/to/speed-bounty/shop-search-mcp.mjs"
+        ],
+        "env": {
+          "SHOPS": "fellowproducts.com,www.deathwishcoffee.com,www.nomadgoods.com,magicspoon.com,www.kyliecosmetics.com"
+        },
+        "supportsParallelToolCalls": true,
+        "connectionTimeoutMs": 60000,
+        "requestTimeoutMs": 60000
+      }
+    }
+  }
+}

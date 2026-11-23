@@ -1,0 +1,11 @@
+{
+ "tip": "mean: the average of 11 model calls' rates, 1,105 tok/s.\np90: 90% of 11 model calls ran at or below 1,594 tok/s.\nReported by the server: 1,067 tokens in 1.3 s of decode over 11 model calls.",
+ "tail": [
+  "Shimmy Coffee Sieve — $33.95 — https://fellowproducts.com/products/shimmy-coffee-sieve",
+  "Triple Threat Coffee Bundle — $54.99 — https://www.deathwishcoffee.com/products/triple-threat-coffee-bundle",
+  "Card Wallet Plus - Black | Horween — $87.00 — https://www.nomadgoods.com/products/card-wallet-plus-black",
+  "Treats Combo Pack - 16 Cereal Treats (4 Boxes) — $39.00 — https://magicspoon.com/products/chocolatey-pb-and-marshmallow-16-cereal-treats",
+  "Mood Stones Starter Gift Set — $80.00 — https://www.kyliecosmetics.com/products/mood-stones-starter-gift-set"
+ ],
+ "seconds": "21.9"
+}
